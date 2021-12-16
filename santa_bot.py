@@ -132,6 +132,18 @@ async def logging_user(call: types.CallbackQuery):
         )
     )
 
+# logic for wish sheets
+# @dp.callback_query_handler(text_contains='wish')
+# async def wish_sheet(call: types.CallbackQuery):
+#     for wish in data["wish"]:
+#         await call.message.answer(
+#             fmt.text(
+#                 fmt.text(wish["user"]),
+#                 fmt.text(wish["user"]),
+#                 fmt.text(wish["user"]),
+#             ), reply_markup=types.ReplyKeyboardRemove()
+#         )
+
 
 # nikita's blog..
 @dp.message_handler(text='Регистрация')
