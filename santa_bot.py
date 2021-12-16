@@ -23,9 +23,9 @@ import aiogram.utils.markdown as fmt
 
 from dotenv import load_dotenv
 
-
 load_dotenv()
-token = os.getenv("BOT_KEY")
+token = os.getenv("TG_BOT_TOKEN")
+bot_name = os.getenv("TG_BOT_NAME")
 loop = asyncio.get_event_loop()
 bot = Bot(token=token, parse_mode=types.ParseMode.HTML)
 storage = MemoryStorage()
@@ -46,6 +46,15 @@ async def cmd_start(message: types.Message):
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         keyboard.add(KeyboardButton(text='Регистрация'))
         await message.answer(
+
+            fmt.text(
+                fmt.text("Замечательно!\n\nТы собираешься участвовать в игре:\n\n"),
+                fmt.text(f"Название игры:   {game_data['name_game'].upper()}\n"),
+                fmt.text(f"\nЦеновой диапазон подарка:   {game_data['limit_price']}\n"),
+                fmt.text(f"\nПериод регистрации участников:   {game_data['date_reg']}\n"),
+                fmt.text(f"\nДата отправки подарков:   {game_data['date_send']}\n")
+            ), reply_markup=keyboard
+
                     fmt.text(
                         fmt.text("Замечательно!\n\nТы собираешься участвовать в игре:\n\n"),
                         fmt.text(f"Название игры:   {game_data['name_game'].upper()}\n"),
@@ -112,7 +121,7 @@ async def date_send(call: types.CallbackQuery):
     buttons = [
         types.InlineKeyboardButton(
             text=f'{day}',
-            callback_data=f'{day}w')for day in col]
+            callback_data=f'{day}w') for day in col]
     keyboard.add(*buttons)
     await call.message.answer("Выберите дату отправки подарка:", reply_markup=keyboard)
     await call.answer()
@@ -131,7 +140,11 @@ async def logging_user(call: types.CallbackQuery):
     await call.message.answer(
         fmt.text(
             fmt.text("Перешлите ссылку новому участнику игры для регистрации:\n\n"),
+
+            fmt.text(f'https://t.me/{bot_name}?start=reg'),
+
             fmt.text('https://t.me/santa_qwerty_rty_bot?start=reg'),
+
         )
     )
 
@@ -149,6 +162,102 @@ async def logging_user(call: types.CallbackQuery):
 
 
 # nikita's blog..
+
+def validate_email(email):
+    regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+    return bool(re.fullmatch(regex, email))
+
+
+def init_db():
+    if not os.path.isfile('users.json'):
+        users_db = {
+            'users': []
+        }
+        with open('users.json', 'w') as users:
+            json.dump(users_db, users)
+
+
+def add_user(user):
+    with open('users.json', 'r') as users:
+        users_db = json.load(users)
+        print(users_db)
+        users_db['users'].append(user)
+        print(users_db)
+
+
+class RegisterOrder(StatesGroup):
+    game_id = State()
+    user_name = State()
+    user_email = State()
+    user_wishlist = State()
+    letter_to_santa = State()
+
+
+@dp.message_handler(text=['Регистрация'])
+async def cmd_register(message: types.Message, state: FSMContext):
+    try:
+        game_id = game_data['game_id']
+        user_id = message['from']['id']
+        await state.update_data(game_id=game_id)
+        await state.update_data(user_id=user_id)
+        await RegisterOrder.user_name.set()
+        await message.answer('Теперь укажите имя пользователя:')
+    except IndexError:
+        await message.reply('Введите id игры.')
+        await RegisterOrder.game_id.set()
+    except ValueError:
+        await message.answer('id игры должен быть целым числом')
+        return
+
+
+@dp.message_handler(state=RegisterOrder.game_id)
+async def get_game_id(message: types.Message, state: FSMContext):
+    try:
+        game_id = int(message.text)
+        await state.update_data(game_id=game_id)
+        await RegisterOrder.next()
+        await message.answer('Теперь укажите имя пользователя:')
+    except ValueError:
+        await message.answer('id игры должен быть целым числом')
+        return
+
+
+@dp.message_handler(state=RegisterOrder.user_name)
+async def get_user_name(message: types.Message, state: FSMContext):
+    user_name = message.text
+    await state.update_data(user_name=user_name)
+    await RegisterOrder.next()
+    await message.answer('Теперь укажите email пользователя:')
+
+
+@dp.message_handler(state=RegisterOrder.user_email)
+async def get_user_email(message: types.Message, state: FSMContext):
+    user_email = message.text
+    if not validate_email(user_email.strip()):
+        await message.answer('Введите корректный email')
+        return
+    await state.update_data(user_email=user_email)
+    await RegisterOrder.next()
+    await message.answer('Теперь укажите ваш вишлист (введите стоп, что бы продолжить дальше):')
+
+
+@dp.message_handler(state=RegisterOrder.user_wishlist)
+async def get_user_wishlist(message: types.Message, state: FSMContext):
+    user_wishlist = message.text
+    await state.update_data(user_wishlist=user_wishlist)
+    await RegisterOrder.next()
+    await message.answer('Напишите письмо санте:')
+
+
+@dp.message_handler(state=RegisterOrder.letter_to_santa)
+async def write_letter_to_santa(message: types.Message, state: FSMContext):
+    letter = message.text
+    await state.update_data(letter_to_santa=letter)
+    user_data = await state.get_data()
+    add_user(user_data)
+    await state.finish()
+    await message.answer('Вы зарегистрированы на игру. Ожидайте сообщения о начале игры.')
+
 @dp.message_handler(text='Регистрация')
 async def logger(message: types.Message):
     await message.answer(f"{message.chat.id, message.from_user.id, message.from_user.first_name, game_data['game_id']}")
@@ -178,5 +287,5 @@ async def name_game(message: types.Message):
 
 
 if __name__ == '__main__':
+    init_db()
     executor.start_polling(dp, skip_updates=True)
-
