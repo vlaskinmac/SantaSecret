@@ -44,7 +44,7 @@ async def cmd_start(message: types.Message):
         keyboard.add(KeyboardButton(text='Регистрация'))
         await message.answer(
                     fmt.text(
-                        fmt.text(fmt.hunderline("Замечательно!\n\nТы собираешься участвовать в игре:\n\n")),
+                        fmt.text("Замечательно!\n\nТы собираешься участвовать в игре:\n\n"),
                         fmt.text(f"Название игры:   {game_data['name_game'].upper()}\n"),
                         fmt.text(f"\nЦеновой диапазон подарка:   {game_data['limit_price']}\n"),
                         fmt.text(f"\nПериод регистрации участников:   {game_data['date_reg']}\n"),
