@@ -7,6 +7,7 @@ import time
 import json
 import random
 
+
 from datetime import date, timedelta
 
 from aiogram import types
@@ -45,6 +46,7 @@ async def cmd_start(message: types.Message):
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         keyboard.add(KeyboardButton(text='Регистрация'))
         await message.answer(
+
             fmt.text(
                 fmt.text("Замечательно!\n\nТы собираешься участвовать в игре:\n\n"),
                 fmt.text(f"Название игры:   {game_data['name_game'].upper()}\n"),
@@ -52,6 +54,14 @@ async def cmd_start(message: types.Message):
                 fmt.text(f"\nПериод регистрации участников:   {game_data['date_reg']}\n"),
                 fmt.text(f"\nДата отправки подарков:   {game_data['date_send']}\n")
             ), reply_markup=keyboard
+
+                    fmt.text(
+                        fmt.text("Замечательно!\n\nТы собираешься участвовать в игре:\n\n"),
+                        fmt.text(f"Название игры:   {game_data['name_game'].upper()}\n"),
+                        fmt.text(f"\nЦеновой диапазон подарка:   {game_data['limit_price']}\n"),
+                        fmt.text(f"\nПериод регистрации участников:   {game_data['date_reg']}\n"),
+                        fmt.text(f"\nДата отправки подарков:   {game_data['date_send']}\n")
+                    ), reply_markup=keyboard
         )
 
 
@@ -130,12 +140,29 @@ async def logging_user(call: types.CallbackQuery):
     await call.message.answer(
         fmt.text(
             fmt.text("Перешлите ссылку новому участнику игры для регистрации:\n\n"),
+
             fmt.text(f'https://t.me/{bot_name}?start=reg'),
+
+            fmt.text('https://t.me/santa_qwerty_rty_bot?start=reg'),
+
         )
     )
 
+# logic for wish sheets
+# @dp.callback_query_handler(text_contains='wish')
+# async def wish_sheet(call: types.CallbackQuery):
+#     for wish in data["wish"]:
+#         await call.message.answer(
+#             fmt.text(
+#                 fmt.text(wish["user"]),
+#                 fmt.text(wish["user"]),
+#                 fmt.text(wish["user"]),
+#             ), reply_markup=types.ReplyKeyboardRemove()
+#         )
+
 
 # nikita's blog..
+
 def validate_email(email):
     regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
     return bool(re.fullmatch(regex, email))
@@ -230,6 +257,18 @@ async def write_letter_to_santa(message: types.Message, state: FSMContext):
     add_user(user_data)
     await state.finish()
     await message.answer('Вы зарегистрированы на игру. Ожидайте сообщения о начале игры.')
+
+@dp.message_handler(text='Регистрация')
+async def logger(message: types.Message):
+    await message.answer(f"{message.chat.id, message.from_user.id, message.from_user.first_name, game_data['game_id']}")
+    await message.answer("Введите имя: ", reply_markup=types.ReplyKeyboardRemove())
+
+
+
+
+
+
+
 
 
 # !! it`s final handler____________________________________________________________
