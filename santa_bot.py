@@ -5,6 +5,8 @@ import os
 import re
 import time
 import json
+import random
+
 
 from datetime import date, timedelta
 
@@ -23,7 +25,7 @@ from dotenv import load_dotenv
 
 
 load_dotenv()
-token = os.getenv("BOT_KEY")
+token = os.getenv("BOT_TOKEN")
 loop = asyncio.get_event_loop()
 bot = Bot(token=token, parse_mode=types.ParseMode.HTML)
 storage = MemoryStorage()
@@ -31,26 +33,12 @@ dp = Dispatcher(bot, storage=storage, loop=loop)
 game_data = {}
 
 
-class IsAdminFilter(BoundFilter):
-    chat_id = 1015193447
-    key = "is_admin"
-
-    def __init__(self, is_admin):
-        self.is_admin = is_admin
-
-    async def check(self, call: types.CallbackQuery):
-        member = await call.bot.get_chat_member(call.message.chat.id, call.from_user.id)
-        return member.is_chat_admin()
-
-
-dp.filters_factory.bind(IsAdminFilter)
-
-
 @dp.message_handler(commands='start')
 async def cmd_start(message: types.Message):
     if not message.text == '/start reg':
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         keyboard.add(KeyboardButton('Создать игру'))
+        await bot.delete_message(message.from_user.id, message.message_id)
         trud = await message.answer("Здравствуйте!", reply_markup=keyboard)
         await asyncio.sleep(10)
         await message.bot.delete_message(chat_id=trud.chat.id, message_id=trud.message_id)
@@ -59,7 +47,7 @@ async def cmd_start(message: types.Message):
         keyboard.add(KeyboardButton(text='Регистрация'))
         await message.answer(
                     fmt.text(
-                        fmt.text(fmt.hunderline("Замечательно!\nТы собираешься участвовать в игре:\n\n")),
+                        fmt.text("Замечательно!\n\nТы собираешься участвовать в игре:\n\n"),
                         fmt.text(f"Название игры:   {game_data['name_game'].upper()}\n"),
                         fmt.text(f"\nЦеновой диапазон подарка:   {game_data['limit_price']}\n"),
                         fmt.text(f"\nПериод регистрации участников:   {game_data['date_reg']}\n"),
@@ -82,23 +70,26 @@ async def create_game(message: types.Message):
 async def yes_limit(call: types.CallbackQuery):
     keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
     buttons = [
-        types.InlineKeyboardButton(text='500 р', callback_data='limit-1'),
-        types.InlineKeyboardButton(text='500-1000 р', callback_data='limit-2'),
-        types.InlineKeyboardButton(text='500-2000 р', callback_data='limit-3'),
+        types.InlineKeyboardButton(text='500 р', callback_data='500 p'),
+        types.InlineKeyboardButton(text='500-1000 р', callback_data='500-1000 p'),
+        types.InlineKeyboardButton(text='500-2000 р', callback_data='500-2000 p'),
     ]
     keyboard.row(*buttons)
     await bot.delete_message(call.from_user.id, call.message.message_id)
     await call.message.answer("Выберите ценовой диапазон:", reply_markup=keyboard)
+    await call.answer()
 
 
-@dp.callback_query_handler(text_contains='limit')
+@dp.callback_query_handler(text_contains='p')
 async def period_reg(call: types.CallbackQuery):
-    game_data['limit_price'] = call.data
-
+    if re.search(r'\d+', call.data):
+        game_data['limit_price'] = call.data
+    else:
+        game_data['limit_price'] = "Нет ограничений!"
     keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     buttons = [
-        types.InlineKeyboardButton(text='до 25.12.2021', callback_data='date-1'),
-        types.InlineKeyboardButton(text='до 31.12.2021', callback_data='date-2'),
+        types.InlineKeyboardButton(text='до 25.12.2021', callback_data='25.12.2021'),
+        types.InlineKeyboardButton(text='до 31.12.2021', callback_data='31.12.2021'),
     ]
     keyboard.row(*buttons)
     await bot.delete_message(call.from_user.id, call.message.message_id)
@@ -106,7 +97,7 @@ async def period_reg(call: types.CallbackQuery):
     await call.answer()
 
 
-@dp.callback_query_handler(text_contains='date')
+@dp.callback_query_handler(text_contains='2021')
 async def date_send(call: types.CallbackQuery):
     game_data['date_reg'] = call.data
     user_date = datetime.datetime(2021, 12, 31)
@@ -130,41 +121,116 @@ async def date_send(call: types.CallbackQuery):
 
 @dp.callback_query_handler(text_contains='w')
 async def logging_user(call: types.CallbackQuery):
-    game_data['date_send'] = call.data
+    choice_day = re.search(r'\d+', call.data).group()
+    date_today = datetime.date.today()
+    game_data['date_send'] = f'{choice_day}.{date_today.month}.{date_today.year}'
     await bot.delete_message(call.from_user.id, call.message.message_id)
     await call.message.answer("Отлично! Тайный Санта уже готовится к раздаче подарков!",
                               reply_markup=types.ReplyKeyboardRemove())
 
     await call.message.answer(
         fmt.text(
-            fmt.text(fmt.hunderline("Перешлите ссылку новому участнику игры для регистрации:\n\n")),
-            fmt.text('https://t.me/santa_qwerty_rty_bot?start=reg'),
+            fmt.text("Перешлите ссылку новому участнику игры для регистрации:\n\n"),
+            fmt.text('https://t.me/nik1986_johnnie_walker_bot?start=reg'),
         )
     )
 
 
 # nikita's blog..
-@dp.message_handler(text='Регистрация')
-async def logger(message: types.Message):
-    await message.answer(f'{message.chat.id, message.from_user.id, message.from_user.first_name}')
-    await message.answer("Введите имя: ", reply_markup=types.ReplyKeyboardRemove())
+def validate_email(email):
+    regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+    return bool(re.fullmatch(regex, email))
 
 
+class RegisterOrder(StatesGroup):
+    game_id = State()
+    user_name = State()
+    user_email = State()
+    user_wishlist = State()
+    letter_to_santa = State()
 
 
+@dp.message_handler(text=['Регистрация'])
+async def cmd_register(message: types.Message, state: FSMContext):
+    try:
+        game_id = game_data['game_id']
+        user_id = message['from']['id']
+        await state.update_data(game_id=game_id)
+        await state.update_data(user_id=user_id)
+        await RegisterOrder.user_name.set()
+        await message.answer('Теперь укажите имя пользователя:')
+    except IndexError:
+        await message.reply('Введите id игры.')
+        await RegisterOrder.game_id.set()
+    except ValueError:
+        await message.answer('id игры должен быть целым числом')
+        return
 
 
+@dp.message_handler(state=RegisterOrder.game_id)
+async def get_game_id(message: types.Message, state: FSMContext):
+    print('id игры')
+    try:
+        game_id = int(message.text)
+        await state.update_data(game_id=game_id)
+        await RegisterOrder.next()
+        await message.answer('Теперь укажите имя пользователя:')
+    except ValueError:
+        await message.answer('id игры должен быть целым числом')
+        return
 
+
+@dp.message_handler(state=RegisterOrder.user_name)
+async def get_user_name(message: types.Message, state: FSMContext):
+    print('Имя пользователя')
+    user_name = message.text
+    await state.update_data(user_name=user_name)
+    await RegisterOrder.next()
+    await message.answer('Теперь укажите email пользователя:')
+
+
+@dp.message_handler(state=RegisterOrder.user_email)
+async def get_user_email(message: types.Message, state: FSMContext):
+    print('email пользователя')
+    user_email = message.text
+    if not validate_email(user_email.strip()):
+        await message.answer('Введите корректный email')
+        return
+    await state.update_data(user_email=user_email)
+    await RegisterOrder.next()
+    await message.answer('Теперь укажите ваш вишлист (введите стоп, что бы продолжить дальше):')
+
+
+@dp.message_handler(state=RegisterOrder.user_wishlist)
+async def get_user_wishlist(message: types.Message, state: FSMContext):
+    print('Хотелки пользователя')
+    user_wishlist = message.text
+    await state.update_data(user_wishlist=user_wishlist)
+    await RegisterOrder.next()
+    await message.answer('Напишите письмо санте:')
+
+
+@dp.message_handler(state=RegisterOrder.letter_to_santa)
+async def write_letter_to_santa(message: types.Message, state: FSMContext):
+    print('Пишем письмо санте')
+    letter = message.text
+    await state.update_data(letter_to_santa=letter)
+    user_data = await state.get_data()
+    print(user_data)
+    await state.finish()
+    await message.answer('Вы зарегистрированы на игру. Ожидайте сообщения о начале игры.')
 
 
 # !! it`s final handler____________________________________________________________
 @dp.message_handler()
 async def name_game(message: types.Message):
     game_data['name_game'] = message.text
+    game_data['game_id'] = random.randint(0, 200)
+
     await bot.delete_message(message.from_user.id, message.message_id)
     keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
     button_yes = types.InlineKeyboardButton(text='ДА', callback_data='yes')
-    button_no = types.InlineKeyboardButton(text='НЕТ', callback_data='limit')
+    button_no = types.InlineKeyboardButton(text='НЕТ', callback_data='pp')
     keyboard.add(button_yes, button_no)
     await message.answer(f"Для игры - {game_data['name_game'].upper()}\n\nТребуется ограничение стоимости подарка?",
                          reply_markup=keyboard)
