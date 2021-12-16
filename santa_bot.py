@@ -48,31 +48,34 @@ dp.filters_factory.bind(IsAdminFilter)
 
 @dp.message_handler(commands='start')
 async def cmd_start(message: types.Message):
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(KeyboardButton('Создать игру'))
-    await message.answer("Здравствуйте!", reply_markup=keyboard)
-
-    await bot.delete_message(message.from_user.id, message.message_id)
+    if not message.text == '/start reg':
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        keyboard.add(KeyboardButton('Создать игру'))
+        trud = await message.answer("Здравствуйте!", reply_markup=keyboard)
+        await asyncio.sleep(10)
+        await message.bot.delete_message(chat_id=trud.chat.id, message_id=trud.message_id)
+    else:
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        keyboard.add(KeyboardButton(text='Регистрация'))
+        await message.answer(
+                    fmt.text(
+                        fmt.text(fmt.hunderline("Замечательно!\nТы собираешься участвовать в игре:\n\n")),
+                        fmt.text(f"Название игры:   {game_data['name_game'].upper()}\n"),
+                        fmt.text(f"\nЦеновой диапазон подарка:   {game_data['limit_price']}\n"),
+                        fmt.text(f"\nПериод регистрации участников:   {game_data['date_reg']}\n"),
+                        fmt.text(f"\nДата отправки подарков:   {game_data['date_send']}\n")
+                    ), reply_markup=keyboard
+        )
 
 
 @dp.message_handler(text='Создать игру')
 async def create_game(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.add(KeyboardButton(' '))
-    await message.answer("Введите название игры", reply_markup=types.ReplyKeyboardRemove())
+    trud = await message.answer("Введите название игры", reply_markup=types.ReplyKeyboardRemove())
     await bot.delete_message(message.from_user.id, message.message_id)
-
-
-@dp.message_handler()
-async def name_game(message: types.Message):
-    game_data['name_game'] = message.text
-    await bot.delete_message(message.from_user.id, message.message_id)
-    keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
-    button_yes = types.InlineKeyboardButton(text='ДА', callback_data='yes')
-    button_no = types.InlineKeyboardButton(text='НЕТ', callback_data='limit')
-    keyboard.add(button_yes, button_no)
-    await message.answer(f"Для игры - {game_data['name_game'].upper()}\n\nТребуется ограничение стоимости подарка?",
-                         reply_markup=keyboard)
+    await asyncio.sleep(5)
+    await message.bot.delete_message(chat_id=trud.chat.id, message_id=trud.message_id)
 
 
 @dp.callback_query_handler(text='yes')
@@ -125,44 +128,46 @@ async def date_send(call: types.CallbackQuery):
     await bot.delete_message(call.from_user.id, call.message.message_id)
 
 
-# @dp.callback_query_handler(is_admin=True,text_contains='w')
-# @dp.callback_query_handler(text_contains='w')
-# async def link(call: types.CallbackQuery):
-    # chat_id = 1015193447
-    # expire_date = datetime.datetime.today() + timedelta(days=1)
-    # link = await bot.create_chat_invite_link(chat_id)
-    # await bot.delete_message(call.from_user.id, call.message.message_id)
-    # await call.message.answer("Сформировали ссылку\n\nОтлично, Тайный Санта уже готовится к раздаче подарков!")
-    # await bot.send_message(call.from_user.id, link.invite_link, call.message.message_id)
-
-
 @dp.callback_query_handler(text_contains='w')
 async def logging_user(call: types.CallbackQuery):
     game_data['date_send'] = call.data
-    # chat_id = 1015193447
-    # expire_date = datetime.datetime.today() + timedelta(days=1)
-    # link = await bot.create_chat_invite_link(chat_id)
-    # await bot.delete_message(call.from_user.id, call.message.message_id)
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(KeyboardButton('Регистрация'))
     await bot.delete_message(call.from_user.id, call.message.message_id)
-    await call.message.answer("Сформировали ссылку\n\nОтлично, Тайный Санта уже готовится к раздаче подарков!",
-                              reply_markup=keyboard)
+    await call.message.answer("Отлично! Тайный Санта уже готовится к раздаче подарков!",
+                              reply_markup=types.ReplyKeyboardRemove())
+
     await call.message.answer(
-                fmt.text(
-                    fmt.text(fmt.hunderline("Замечательно!\nТы собираешься участвовать в игре:\n\n")),
-                    fmt.text(f"Название игры:   {game_data['name_game'].upper()}\n"),
-                    fmt.text(f"\nЦеновой диапазон подарка:   {game_data['limit_price']}\n"),
-                    fmt.text(f"\nПериод регистрации участников:   {game_data['date_reg']}\n"),
-                    fmt.text(f"\nДата отправки подарков:   {game_data['date_send']}\n")
-                )
+        fmt.text(
+            fmt.text(fmt.hunderline("Перешлите ссылку новому участнику игры для регистрации:\n\n")),
+            fmt.text('https://t.me/santa_qwerty_rty_bot?start=reg'),
+        )
     )
 
 
-@dp.callback_query_handler(text='Регистрация')
-async def logger(call: types.CallbackQuery):
-    await bot.delete_message(call.from_user.id, call.message.message_id)
-    await call.message.answer("далее....")
+# nikita's blog..
+@dp.message_handler(text='Регистрация')
+async def logger(message: types.Message):
+    await message.answer(f'{message.chat.id, message.from_user.id, message.from_user.first_name}')
+    await message.answer("Введите имя: ", reply_markup=types.ReplyKeyboardRemove())
+
+
+
+
+
+
+
+
+
+# !! it`s final handler____________________________________________________________
+@dp.message_handler()
+async def name_game(message: types.Message):
+    game_data['name_game'] = message.text
+    await bot.delete_message(message.from_user.id, message.message_id)
+    keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
+    button_yes = types.InlineKeyboardButton(text='ДА', callback_data='yes')
+    button_no = types.InlineKeyboardButton(text='НЕТ', callback_data='limit')
+    keyboard.add(button_yes, button_no)
+    await message.answer(f"Для игры - {game_data['name_game'].upper()}\n\nТребуется ограничение стоимости подарка?",
+                         reply_markup=keyboard)
 
 
 if __name__ == '__main__':
