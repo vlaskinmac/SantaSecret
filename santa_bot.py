@@ -5,6 +5,8 @@ import os
 import re
 import time
 import json
+import random
+
 
 from datetime import date, timedelta
 
@@ -149,7 +151,7 @@ async def logging_user(call: types.CallbackQuery):
 # nikita's blog..
 @dp.message_handler(text='Регистрация')
 async def logger(message: types.Message):
-    await message.answer(f'{message.chat.id, message.from_user.id, message.from_user.first_name}')
+    await message.answer(f"{message.chat.id, message.from_user.id, message.from_user.first_name, game_data['game_id']}")
     await message.answer("Введите имя: ", reply_markup=types.ReplyKeyboardRemove())
 
 
@@ -164,6 +166,8 @@ async def logger(message: types.Message):
 @dp.message_handler()
 async def name_game(message: types.Message):
     game_data['name_game'] = message.text
+    game_data['game_id'] = random.randint(0, 200)
+
     await bot.delete_message(message.from_user.id, message.message_id)
     keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
     button_yes = types.InlineKeyboardButton(text='ДА', callback_data='yes')
