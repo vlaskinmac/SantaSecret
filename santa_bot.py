@@ -36,6 +36,7 @@ async def cmd_start(message: types.Message):
     if not message.text == '/start reg':
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         keyboard.add(KeyboardButton('Создать игру'))
+        await bot.delete_message(message.from_user.id, message.message_id)
         trud = await message.answer("Здравствуйте!", reply_markup=keyboard)
         await asyncio.sleep(10)
         await message.bot.delete_message(chat_id=trud.chat.id, message_id=trud.message_id)
@@ -127,7 +128,7 @@ async def logging_user(call: types.CallbackQuery):
 
     await call.message.answer(
         fmt.text(
-            fmt.text(fmt.hunderline("Перешлите ссылку новому участнику игры для регистрации:\n\n")),
+            fmt.text("Перешлите ссылку новому участнику игры для регистрации:\n\n"),
             fmt.text('https://t.me/santa_qwerty_rty_bot?start=reg'),
         )
     )
