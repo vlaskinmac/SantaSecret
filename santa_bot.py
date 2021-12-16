@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 token = os.getenv("BOT_TOKEN")
+bot_name = os.getenv("TG_BOT_NAME")
 loop = asyncio.get_event_loop()
 bot = Bot(token=token, parse_mode=types.ParseMode.HTML)
 storage = MemoryStorage()
@@ -131,7 +132,7 @@ async def logging_user(call: types.CallbackQuery):
     await call.message.answer(
         fmt.text(
             fmt.text("Перешлите ссылку новому участнику игры для регистрации:\n\n"),
-            fmt.text('https://t.me/nik1986_johnnie_walker_bot?start=reg'),
+            fmt.text(f'https://t.me/{bot_name}?start=reg'),
         )
     )
 
