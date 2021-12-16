@@ -74,7 +74,7 @@ async def yes_limit(call: types.CallbackQuery):
         types.InlineKeyboardButton(text='500-1000 р', callback_data='500-1000 p'),
         types.InlineKeyboardButton(text='500-2000 р', callback_data='500-2000 p'),
     ]
-    keyboard.row(*buttons)
+    keyboard.row(*buttons)-
     await bot.delete_message(call.from_user.id, call.message.message_id)
     await call.message.answer("Выберите ценовой диапазон:", reply_markup=keyboard)
     await call.answer()
