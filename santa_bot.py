@@ -283,3 +283,14 @@ async def name_game(message: types.Message):
 if __name__ == '__main__':
     init_db()
     executor.start_polling(dp, skip_updates=True)
+
+# import random
+#
+# colleagues = ['A', 'B', 'C', 'D','E', 'F', 'G']
+#
+# random.shuffle(colleagues)
+# offset = [colleagues[-1]] + colleagues[:-1]
+# for santa, receiver in zip(colleagues, offset):
+#      print(santa, "Дарит подарок", receiver)
+
+
