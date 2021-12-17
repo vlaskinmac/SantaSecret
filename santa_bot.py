@@ -263,8 +263,6 @@ async def wish_sheet(message: types.Message):
     #         ), reply_markup=types.ReplyKeyboardRemove()
     #     )
 
-
-
 # !! it`s final handler____________________________________________________________
 
 
@@ -280,9 +278,6 @@ async def name_game(message: types.Message):
     keyboard.add(button_yes, button_no)
     await message.answer(f"Для игры - {game_data['name_game'].upper()}\n\nТребуется ограничение стоимости подарка?",
                          reply_markup=keyboard)
-
-
-
 
 
 if __name__ == '__main__':
