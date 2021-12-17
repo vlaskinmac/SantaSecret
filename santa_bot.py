@@ -47,12 +47,9 @@ async def cmd_start(message: types.Message, state: FSMContext):
     if message.text == 'Отмена':
         await state.finish()
     if not message.text == '/start reg' or message.text == 'Отмена':
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         keyboard.add(KeyboardButton('Создать игру'))
-        await bot.delete_message(message.from_user.id, message.message_id)
-        trud = await message.answer("Здравствуйте!", reply_markup=keyboard)
-        await asyncio.sleep(10)
-        await message.bot.delete_message(chat_id=trud.chat.id, message_id=trud.message_id)
+        await message.answer("Здравствуйте!", reply_markup=keyboard)
     else:
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         keyboard.add(KeyboardButton(text='Регистрация'))
@@ -60,7 +57,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
             fmt.text(
                 fmt.text("Замечательно!\n\nТы собираешься участвовать в игре:\n\n"),
-                fmt.text(f"Название игры:   {game_data['name_game'].upper()}\n"),
+                fmt.text(f"Название игры:   {game_data['name_game']}\n"),
                 fmt.text(f"\nЦеновой диапазон подарка:   {game_data['limit_price']}\n"),
                 fmt.text(f"\nПериод регистрации участников:   {game_data['date_reg']}\n"),
                 fmt.text(f"\nДата отправки подарков:   {game_data['date_send']}\n")
@@ -71,12 +68,8 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
 @dp.message_handler(text='Создать игру')
 async def create_game(message: types.Message):
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(KeyboardButton(' '))
-    trud = await message.answer("Введите название игры", reply_markup=types.ReplyKeyboardRemove())
-    await bot.delete_message(message.from_user.id, message.message_id)
-    await asyncio.sleep(5)
-    await message.bot.delete_message(chat_id=trud.chat.id, message_id=trud.message_id)
+    game_data['name_game'] = None
+    await message.answer("Введите название игры")
 
 
 @dp.callback_query_handler(text='yes')
@@ -88,7 +81,6 @@ async def yes_limit(call: types.CallbackQuery):
         types.InlineKeyboardButton(text='500-2000 р', callback_data='500-2000 p'),
     ]
     keyboard.row(*buttons)
-    await bot.delete_message(call.from_user.id, call.message.message_id)
     await call.message.answer("Выберите ценовой диапазон:", reply_markup=keyboard)
     await call.answer()
 
@@ -105,7 +97,6 @@ async def period_reg(call: types.CallbackQuery):
         types.InlineKeyboardButton(text='до 31.12.2021', callback_data='31.12.2021'),
     ]
     keyboard.row(*buttons)
-    await bot.delete_message(call.from_user.id, call.message.message_id)
     await call.message.answer("Выберите период регистрации участников до 12.00 МСК:", reply_markup=keyboard)
     await call.answer()
 
@@ -129,7 +120,6 @@ async def date_send(call: types.CallbackQuery):
     keyboard.add(*buttons)
     await call.message.answer("Выберите дату отправки подарка:", reply_markup=keyboard)
     await call.answer()
-    await bot.delete_message(call.from_user.id, call.message.message_id)
 
 
 @dp.callback_query_handler(text_contains='w')
@@ -138,7 +128,6 @@ async def logging_user(call: types.CallbackQuery):
     date_today = datetime.date.today()
     bot_name = await bot.get_me()
     game_data['date_send'] = f'{choice_day}.{date_today.month}.{date_today.year}'
-    await bot.delete_message(call.from_user.id, call.message.message_id)
     await call.message.answer("Отлично! Тайный Санта уже готовится к раздаче подарков!",
                               reply_markup=types.ReplyKeyboardRemove())
     await call.message.answer(
@@ -242,7 +231,7 @@ async def get_user_wishlist(message: types.Message, state: FSMContext):
 @dp.message_handler(state=RegisterOrder.letter_to_santa)
 async def write_letter_to_santa(message: types.Message, state: FSMContext):
     letter = message.text
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True,  one_time_keyboard=True)
     keyboard.add(KeyboardButton(text='Отправить письмо санте!'), KeyboardButton(text='Отмена'))
     await state.update_data(letter_to_santa=letter)
     user_data = await state.get_data()
@@ -254,30 +243,31 @@ async def write_letter_to_santa(message: types.Message, state: FSMContext):
 @dp.message_handler(text='Отправить письмо санте!')
 async def wish_sheet(message: types.Message):
     await message.answer('Вы зарегистрированы на игру. Ожидайте сообщения о начале игры!')
-    # for wish in data["wish"]:
-    #     await call.message.answer(
+    # with open('users.json', 'r') as users:
+    #     users_db = json.load(users)
+
+    # await message.answer()
+    # for wish in game_data["user_wishlist"]:
+    #     await message.answer(
     #         fmt.text(
-    #             fmt.text(wish["user"]),
-    #             fmt.text(wish["user"]),
-    #             fmt.text(wish["user"]),
+    #             fmt.text(wish),
     #         ), reply_markup=types.ReplyKeyboardRemove()
     #     )
 
 # !! it`s final handler____________________________________________________________
 
-
 @dp.message_handler()
 async def name_game(message: types.Message):
-    game_data['name_game'] = message.text
-    game_data['game_id'] = random.randint(0, 200)
-
-    await bot.delete_message(message.from_user.id, message.message_id)
-    keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
-    button_yes = types.InlineKeyboardButton(text='ДА', callback_data='yes')
-    button_no = types.InlineKeyboardButton(text='НЕТ', callback_data='pp')
-    keyboard.add(button_yes, button_no)
-    await message.answer(f"Для игры - {game_data['name_game'].upper()}\n\nТребуется ограничение стоимости подарка?",
-                         reply_markup=keyboard)
+    if not game_data['name_game']:
+        game_data['name_game'] = message.text
+        game_data['game_id'] = random.randint(0, 200)
+        await bot.delete_message(message.from_user.id, message.message_id)
+        keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
+        button_yes = types.InlineKeyboardButton(text='ДА', callback_data='yes')
+        button_no = types.InlineKeyboardButton(text='НЕТ', callback_data='pp')
+        keyboard.add(button_yes, button_no)
+        await message.answer(f"Для игры - {game_data['name_game']}\n\nТребуется ограничение стоимости подарка?",
+                             reply_markup=keyboard)
 
 
 if __name__ == '__main__':
