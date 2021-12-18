@@ -217,6 +217,7 @@ def get_game(game_id):
                 return game
         return None
 
+
 @dp.message_handler(state=RegisterOrder.game_id)
 async def get_game_id(message: types.Message, state: FSMContext):
     try:
