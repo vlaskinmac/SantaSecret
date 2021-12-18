@@ -38,6 +38,7 @@ class RegisterOrder(StatesGroup):
     user_email = State()
     user_wishlist = State()
     letter_to_santa = State()
+    register_finish = State()
 
 
 @dp.message_handler(commands='start')
@@ -228,60 +229,94 @@ async def get_game_id(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(Text(equals="Изменить email"), state="*")
-@dp.message_handler(state=RegisterOrder.user_name)
-async def get_user_name(message: types.Message, state: FSMContext):
-    user_name = message.text
+async def go_to_email(message: types.Message):
+    await RegisterOrder.user_email.set()
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.add(KeyboardButton(text='Изменить имя'), KeyboardButton(text='Отмена'))
-    await state.update_data(user_name=user_name)
-    await RegisterOrder.next()
     await message.answer('Теперь укажите email:', reply_markup=keyboard)
 
 
 @dp.message_handler(Text(equals="Изменить список желаний"), state="*")
-@dp.message_handler(state=RegisterOrder.user_email)
-async def get_user_email(message: types.Message, state: FSMContext):
-    user_email = message.text
+async def go_to_wishlist(message: types.Message):
+    await RegisterOrder.user_wishlist.set()
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.add(KeyboardButton(text='Изменить email'), KeyboardButton(text='Отмена'))
-    if not validate_email(user_email.strip()):
-        await message.answer('Введите корректный email')
-        return
-    await state.update_data(user_email=user_email)
-    await RegisterOrder.next()
     await message.answer(
         'Теперь укажите ваш список желаний (введите стоп, что бы продолжить дальше):', reply_markup=keyboard)
 
 
 @dp.message_handler(Text(equals="Изменить письмо санте"), state="*")
-@dp.message_handler(state=RegisterOrder.user_wishlist)
-async def get_user_wishlist(message: types.Message, state: FSMContext):
+async def go_to_santa_letter(message: types.Message):
+    await RegisterOrder.letter_to_santa.set()
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.add(KeyboardButton(text='Изменить список желаний'), KeyboardButton(text='Отмена'))
+    await message.answer('Напишите письмо санте:', reply_markup=keyboard)
+
+
+@dp.message_handler(state=RegisterOrder.user_name)
+async def get_user_name(message: types.Message, state: FSMContext):
+    user_name = message.text
+    await state.update_data(user_name=user_name)
+    await RegisterOrder.next()
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.add(KeyboardButton(text='Изменить имя'), KeyboardButton(text='Отмена'))
+    await message.answer('Теперь укажите email:', reply_markup=keyboard)
+
+
+@dp.message_handler(state=RegisterOrder.user_email)
+async def get_user_email(message: types.Message, state: FSMContext):
+    user_email = message.text
+    if not validate_email(user_email.strip()):
+        await message.answer('Введите корректный email')
+        return
+    await state.update_data(user_email=user_email)
+    await RegisterOrder.next()
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.add(KeyboardButton(text='Изменить email'), KeyboardButton(text='Отмена'))
+    await message.answer(
+        'Теперь укажите ваш список желаний (введите стоп, что бы продолжить дальше):', reply_markup=keyboard)
+
+
+@dp.message_handler(state=RegisterOrder.user_wishlist)
+async def get_user_wishlist(message: types.Message, state: FSMContext):
     user_wishlist = message.text
     await state.update_data(user_wishlist=user_wishlist)
     await RegisterOrder.next()
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.add(KeyboardButton(text='Изменить список желаний'), KeyboardButton(text='Отмена'))
     await message.answer('Напишите письмо санте:', reply_markup=keyboard)
 
 
 @dp.message_handler(state=RegisterOrder.letter_to_santa)
 async def write_letter_to_santa(message: types.Message, state: FSMContext):
     letter = message.text
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True,  one_time_keyboard=True)
-    keyboard.add(KeyboardButton(text='Отправить письмо санте!'), KeyboardButton(text='Отмена'))
     await state.update_data(letter_to_santa=letter)
-    user_data = await state.get_data()
-    user_data['game_id'] = int(game_data['game_id'])
-    user_data['user_id'] = game_data['user_id']
-    add_user(user_data)
-    await state.finish()
-    await message.answer('🎅', reply_markup=keyboard)
+    await RegisterOrder.next()
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    keyboard.add(
+        KeyboardButton(text='Завершить!', callback_data='register_finish'),
+        KeyboardButton(text='Изменить письмо санте'),
+        KeyboardButton(text='Отмена')
+    )
+    await message.answer('Подтвердите регистрацию!', reply_markup=keyboard)
 
 
-@dp.message_handler(text='Отправить письмо санте!')
-async def wish_sheet(message: types.Message):
-    game = get_game(int(game_data["game_id"]))
-    await message.answer(f'Вы зарегистрированы на игру {game["name_game"]}. Ожидайте сообщения о начале игры!')
+@dp.message_handler(state=RegisterOrder.register_finish)
+async def register_finish(message: types.Message, state: FSMContext):
+    if message.text == 'Завершить!':
+        user_data = await state.get_data()
+        user_data['game_id'] = int(game_data['game_id'])
+        user_data['user_id'] = game_data['user_id']
+        add_user(user_data)
+        game = get_game(int(game_data["game_id"]))
+        await message.answer(f'Вы зарегистрированы на игру {game["name_game"]}. Ожидайте сообщения о начале игры!')
+        await state.finish()
+
+
+# @dp.message_handler(text='Отправить письмо санте!')
+# async def wish_sheet(message: types.Message):
+#     game = get_game(int(game_data["game_id"]))
+#     await message.answer(f'Вы зарегистрированы на игру {game["name_game"]}. Ожидайте сообщения о начале игры!')
     # with open('users.json', 'r') as users:
     #     users_db = json.load(users)
 
