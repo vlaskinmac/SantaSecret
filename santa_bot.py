@@ -47,6 +47,17 @@ async def cmd_start(message: types.Message, state: FSMContext):
     if message.text == 'Отмена':
         await state.finish()
     if not message.text == '/start reg' or message.text == 'Отмена':
+        # check if it is registration link
+        game_id = re.search('\d+$', message.text)
+        if game_id is not None:
+            game_data['game_id'] = game_id.group()
+            user_id = message['from']['id']
+            game_data['user_id'] = user_id
+            game = get_game(int(game_data["game_id"]))
+            await message.answer(f'Вы регистрируетесь на игру {game["name_game"]}')
+            await RegisterOrder.user_name.set()
+            await message.answer('Теперь укажите имя:')
+            return
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         keyboard.add(KeyboardButton('Создать игру'))
         await message.answer("Здравствуйте!", reply_markup=keyboard)
@@ -90,7 +101,8 @@ async def period_reg(call: types.CallbackQuery):
     if re.search(r'\d+', call.data):
         game_data['limit_price'] = call.data
     else:
-        game_data['limit_price'] = "Нет ограничений!"
+        # Заменил на None в связи с проблемой кодировки русских символов в json
+        game_data['limit_price'] = None
     keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     buttons = [
         types.InlineKeyboardButton(text='до 25.12.2021', callback_data='25.12.2021'),
@@ -99,6 +111,26 @@ async def period_reg(call: types.CallbackQuery):
     keyboard.row(*buttons)
     await call.message.answer("Выберите период регистрации участников до 12.00 МСК:", reply_markup=keyboard)
     await call.answer()
+
+
+@dp.message_handler(text='Регистрация')
+@dp.message_handler(Text(equals="Изменить имя"), state="*")
+async def cmd_register(message: types.Message, state: FSMContext):
+    try:
+        game_id = game_data['game_id']
+        user_id = message['from']['id']
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        keyboard.add(KeyboardButton(text='Отмена'))
+        await state.update_data(game_id=game_id)
+        await state.update_data(user_id=user_id)
+        await RegisterOrder.user_name.set()
+        await message.answer('Теперь укажите имя:', reply_markup=keyboard)
+    except IndexError:
+        await message.reply('Введите id игры.')
+        await RegisterOrder.game_id.set()
+    except ValueError:
+        await message.answer('id игры должен быть целым числом')
+        return
 
 
 @dp.callback_query_handler(text_contains='2021')
@@ -128,12 +160,13 @@ async def logging_user(call: types.CallbackQuery):
     date_today = datetime.date.today()
     bot_name = await bot.get_me()
     game_data['date_send'] = f'{choice_day}.{date_today.month}.{date_today.year}'
+    add_game(game_data)
     await call.message.answer("Отлично! Тайный Санта уже готовится к раздаче подарков!",
                               reply_markup=types.ReplyKeyboardRemove())
     await call.message.answer(
         fmt.text(
             fmt.text("Перешлите ссылку новому участнику игры для регистрации:\n\n"),
-            fmt.text(f'https://t.me/{bot_name.username}?start=reg'),
+            fmt.text(f'https://t.me/{bot_name.username}?start=reg{game_data["game_id"]}'),
         )
     )
 
@@ -151,34 +184,37 @@ def init_db():
         with open('users.json', 'w') as users:
             json.dump(users_db, users)
 
+    if not os.path.isfile('games.json'):
+        game_db = {
+            'games': []
+        }
+        with open('games.json', 'w') as games:
+            json.dump(game_db, games)
+
 
 def add_user(user):
     with open('users.json', 'r') as users:
         users_db = json.load(users)
-        print(users_db)
         users_db['users'].append(user)
-        print(users_db)
+    with open('users.json', 'w') as users:
+        json.dump(users_db, users)
 
 
-@dp.message_handler(Text(equals="Изменить имя"), state="*")
-@dp.message_handler(text='Регистрация')
-async def cmd_register(message: types.Message, state: FSMContext):
-    try:
-        game_id = game_data['game_id']
-        user_id = message['from']['id']
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        keyboard.add(KeyboardButton(text='Отмена'))
-        await state.update_data(game_id=game_id)
-        await state.update_data(user_id=user_id)
-        await RegisterOrder.user_name.set()
-        await message.answer('Теперь укажите имя:', reply_markup=keyboard)
-    except IndexError:
-        await message.reply('Введите id игры.')
-        await RegisterOrder.game_id.set()
-    except ValueError:
-        await message.answer('id игры должен быть целым числом')
-        return
+def add_game(game):
+    with open('games.json', 'r') as games:
+        games_db = json.load(games)
+        games_db['games'].append(game)
+    with open('games.json', 'w') as games:
+        json.dump(games_db, games)
 
+
+def get_game(game_id):
+    with open('games.json', 'r') as games:
+        games_db = json.load(games)
+        for game in games_db['games']:
+            if game['game_id'] == game_id:
+                return game
+        return None
 
 @dp.message_handler(state=RegisterOrder.game_id)
 async def get_game_id(message: types.Message, state: FSMContext):
@@ -235,6 +271,8 @@ async def write_letter_to_santa(message: types.Message, state: FSMContext):
     keyboard.add(KeyboardButton(text='Отправить письмо санте!'), KeyboardButton(text='Отмена'))
     await state.update_data(letter_to_santa=letter)
     user_data = await state.get_data()
+    user_data['game_id'] = int(game_data['game_id'])
+    user_data['user_id'] = game_data['user_id']
     add_user(user_data)
     await state.finish()
     await message.answer('🎅', reply_markup=keyboard)
@@ -242,7 +280,8 @@ async def write_letter_to_santa(message: types.Message, state: FSMContext):
 
 @dp.message_handler(text='Отправить письмо санте!')
 async def wish_sheet(message: types.Message):
-    await message.answer('Вы зарегистрированы на игру. Ожидайте сообщения о начале игры!')
+    game = get_game(int(game_data["game_id"]))
+    await message.answer(f'Вы зарегистрированы на игру {game["name_game"]}. Ожидайте сообщения о начале игры!')
     # with open('users.json', 'r') as users:
     #     users_db = json.load(users)
 
