@@ -313,21 +313,6 @@ async def register_finish(message: types.Message, state: FSMContext):
         await state.finish()
 
 
-# @dp.message_handler(text='Отправить письмо санте!')
-# async def wish_sheet(message: types.Message):
-#     game = get_game(int(game_data["game_id"]))
-#     await message.answer(f'Вы зарегистрированы на игру {game["name_game"]}. Ожидайте сообщения о начале игры!')
-    # with open('users.json', 'r') as users:
-    #     users_db = json.load(users)
-
-    # await message.answer()
-    # for wish in game_data["user_wishlist"]:
-    #     await message.answer(
-    #         fmt.text(
-    #             fmt.text(wish),
-    #         ), reply_markup=types.ReplyKeyboardRemove()
-    #     )
-
 # !! it`s final handler____________________________________________________________
 
 @dp.message_handler()
