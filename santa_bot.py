@@ -111,13 +111,28 @@ async def period_reg(call: types.CallbackQuery):
     else:
         # Заменил на None в связи с проблемой кодировки русских символов в json
         game_data['limit_price'] = 'Нет ограничений'
-    keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    # keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    # buttons = [
+    #     types.InlineKeyboardButton(text='до 25.12.2021', callback_data='25.12.2021q'),
+    #     types.InlineKeyboardButton(text='до 31.12.2021', callback_data='31.12.2021q'),
+    # ]
+    # keyboard.row(*buttons)
+
+    user_date = datetime.datetime.today()
+    das = user_date + timedelta(weeks=4)
+    count_date = das - user_date
+    days = user_date + timedelta(days=count_date.days)
+    keyboard = types.InlineKeyboardMarkup(row_width=4, resize_keyboard=True, one_time_keyboard=True)
+    col = []
+    for i in range(int(days.day) + 1):
+        date_calendar = user_date + timedelta(days=i)
+        col.append(datetime.date.strftime(date_calendar.date(), '%d.%m.%Y'))
     buttons = [
-        types.InlineKeyboardButton(text='до 25.12.2021', callback_data='25.12.2021'),
-        types.InlineKeyboardButton(text='до 31.12.2021', callback_data='31.12.2021'),
-    ]
-    keyboard.row(*buttons)
-    await call.message.answer("Выберите период регистрации участников до 12.00 МСК:", reply_markup=keyboard)
+        types.InlineKeyboardButton(
+            text=f'{day}',
+            callback_data=f'{day}q') for day in col]
+    keyboard.add(*buttons)
+    await call.message.answer("Выберите период регистрации участников:", reply_markup=keyboard)
     await call.answer()
 
 
@@ -127,11 +142,12 @@ async def cmd_register(message: types.Message, state: FSMContext):
     try:
         game_id = game_data['game_id']
         date_send = game_data['date_send']
-
+        date_reg = game_data['date_reg']
         user_id = str(message.from_user.id)
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         keyboard.add(KeyboardButton(text='Отмена'))
         await state.update_data(date_send=date_send)
+        await state.update_data(date_reg=date_reg)
         await state.update_data(game_id=game_id)
         await state.update_data(user_id=user_id)
         await RegisterOrder.user_name.set()
@@ -144,18 +160,20 @@ async def cmd_register(message: types.Message, state: FSMContext):
         return
 
 
-@dp.callback_query_handler(text_contains='2021')
+@dp.callback_query_handler(text_contains='q')
 async def date_send(call: types.CallbackQuery):
-    game_data['date_reg'] = call.data
-    user_date = datetime.datetime(2021, 12, 31)
-    date_today = datetime.datetime.today()
-    count_date = date_today - user_date
-    days = int(count_date.days * -1)
+    choice_date = re.sub(r'q', "", call.data)
+    game_data['date_reg'] = choice_date
+    day, month, year = choice_date.split(".")
+    user_date = datetime.datetime(int(year), int(month), int(day))
+    das = user_date + timedelta(weeks=4)
+    count_date = das - user_date
+    days = user_date + timedelta(days=count_date.days)
     keyboard = types.InlineKeyboardMarkup(row_width=4, resize_keyboard=True, one_time_keyboard=True)
     col = []
-    for i in range(days + 1):
-        date_calendar = date_today + timedelta(days=i)
-        col.append(date_calendar.day)
+    for i in range(int(days.day) + 1):
+        date_calendar = user_date + timedelta(days=i)
+        col.append(datetime.date.strftime(date_calendar.date(), '%d.%m.%Y'))
     buttons = [
         types.InlineKeyboardButton(
             text=f'{day}',
@@ -167,11 +185,9 @@ async def date_send(call: types.CallbackQuery):
 
 @dp.callback_query_handler(text_contains='w')
 async def logging_user(call: types.CallbackQuery):
-    choice_day = re.search(r'\d+', call.data).group()
-    date_today = datetime.date.today()
+    choice_day = re.sub(r'w', "", call.data)
     bot_name = await bot.get_me()
-    game_data['date_send'] = f'{choice_day}.{date_today.month}.{date_today.year}'
-    # add_game(game_data)
+    game_data['date_send'] = choice_day
     await call.message.answer("Отлично! Тайный Санта уже готовится к раздаче подарков!",
                               reply_markup=types.ReplyKeyboardRemove())
     await call.message.answer(
@@ -203,16 +219,16 @@ def validate_email(email):
     #         json.dump(game_db, games, ensure_ascii=False, indent=3)
 
 
-def add_user(user):
-    try:
-        with open('users.json', 'r') as users:
-            users_db = json.load(users)
-            users_db['users'].append(user)
-
-        with open('users.json', 'w') as users:
-            json.dump(users_db, users, ensure_ascii=False, indent=3)
-    except:
-        init_db()
+# def add_user(user):
+#     try:
+#         with open('users.json', 'r') as users:
+#             users_db = json.load(users)
+#             users_db['users'].append(user)
+#
+#         with open('users.json', 'w') as users:
+#             json.dump(users_db, users, ensure_ascii=False, indent=3)
+#     except:
+#         init_db()
 
 
 # def add_game(game):
@@ -341,11 +357,8 @@ async def register_finish(message: types.Message, state: FSMContext):
         games.append(game_data)
         with open('games.json', 'a+') as file:
             json.dump(games, file, ensure_ascii=False, default=str, indent=3)
-
-
     if message.text == 'Отправить письмо санте!':
         user_data = await state.get_data()
-
         try:
             with open('users.json') as f:
                 file_data = json.load(f)
@@ -357,8 +370,6 @@ async def register_finish(message: types.Message, state: FSMContext):
             users.append(user_data)
             with open('users.json', 'a+') as file:
                 json.dump(users, file, ensure_ascii=False, default=str, indent=3)
-
-        # add_user(user_data)
 
         await state.finish()
         keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
@@ -379,46 +390,23 @@ async def random_choice(call: types.CallbackQuery):
     await call.message.answer(f'Превосходно, ты в игре! {game_data["date_reg"]} мы проведем жеребьевку'
                               f' и ты узнаешь имя и контакты своего тайного друга. Ему и нужно будет подарить подарок!')
     await call.answer()
-    participants_of_game_1 = []
-    participants_of_game_2 = []
-    first_date = '25.12.2021'
-    second_date = '31.12.2021'
-
+    participants_of_game = []
     with open('games.json', 'r') as games:
         games_db = json.load(games)
     with open('users.json', 'r') as users:
         users_d = json.load(users)
-    g = None
-    m = None
     for user in users_d:
         for game in games_db:
-            if user['game_id'] == game['game_id'] and user['date_send'] == game['date_send']:
-                if user['date_send'] == first_date:
-                    m = user['user_id']
-                    g = 1
-                    participants_of_game_1.append([user['user_id'], user['user_name'], user['user_wishlist']])
-                if user['date_send'] == second_date:
-                    m = user['user_id']
-                    participants_of_game_2.append([user['user_id'], user['user_name'], user['user_wishlist']])
-
-
-
-    print(game_data['date_send'])
-    print(first_date)
-    print(call.from_user.id)
-    print(m)
-
-    if call.from_user.id == m and game_data['date_send'] == first_date:
-        for wish in participants_of_game_1:
-            await call.message.answer(f"Игрок: {wish[1]} желает получить:\n\n{wish[2]}")
-    if call.from_user.id == m and game_data['date_send'] == second_date:
-        for wish in participants_of_game_2:
-            await call.message.answer(f"Игрок: {wish[1]} желает получить:\n\n{wish[2]}")
+            if user['game_id'] == game['game_id'] and user['date_reg'] == game['date_reg']:
+                if user['date_reg'] == game_data['date_reg']:
+                    participants_of_game.append([user['user_id'], user['user_name'], user['user_wishlist']])
+    for wish in participants_of_game:
+        await call.message.answer(f"Игрок: {wish[1]} желает получить:\n\n{wish[2]}")
 
 
 
     user_date_1 = datetime.datetime.today() + timedelta(minutes=1)
-    user_date_2 = datetime.datetime.today() + timedelta(minutes=2)
+
 
     flag_1 = 0
     stop_send_2 = 0
@@ -544,9 +532,26 @@ async def name_game(message: types.Message):
 # print(datetime.datetime.today())
 
 
-
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
+
+
+# x = '25.12.2021'
+# day, month, year = x.split(".")
+# user_date = datetime.datetime(int(year), int(month), int(day))
+# datetime_object = datetime.datetime.strptime(x, '%d.%m.%Y')
+# das = user_date + timedelta(weeks=4)
+# count_date = das - user_date
+# days = user_date + timedelta(days=count_date.days)
+# date_test= user_date.date()
+# date1 = datetime.date.strftime(date_test, '%Y-%m-%d')
+# date2 = datetime.date.strftime(date_test, '%d.%m.%Y')
+
+
+
+
+
+
 
 # with open('games.json', 'r') as games:
 #     games_db = json.load(games)
