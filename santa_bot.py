@@ -315,6 +315,7 @@ async def register_finish(message: types.Message, state: FSMContext):
         await state.finish()
 
 
+
     user_data = await state.get_data()
     add_user(user_data)
     await state.finish()
