@@ -47,18 +47,25 @@ class RegisterOrder(StatesGroup):
 async def cmd_start(message: types.Message, state: FSMContext):
     if message.text == 'Отмена':
         await state.finish()
-    if not message.text == '/start reg' or message.text == 'Отмена':
+    # if not message.text == '/start reg' or message.text == 'Отмена':
         # check if it is registration link
+    msg = message.text
+    msg_text = re.sub(r'\d+', "", str(msg))
+        # await message.answer("Здравствуйте!")
+    if not str(msg_text) == '/start reg' or str(msg_text) == 'Отмена':
         game_id = re.search('\d+$', message.text)
-        if game_id is not None:
-            game_data['game_id'] = game_id.group()
-            user_id = message['from']['id']
-            game_data['user_id'] = user_id
-            game = get_game(int(game_data["game_id"]))
-            await message.answer(f'Вы регистрируетесь на игру {game["name_game"]}')
-            await RegisterOrder.user_name.set()
-            await message.answer('Теперь укажите имя:')
-            return
+
+        # if game_id is not None:
+        #     game_data['game_id'] = game_id.group()
+        #     user_id = message['from']['id']
+        #     game_data['user_id'] = user_id
+        #     game = get_game(int(game_data["game_id"]))
+        #
+        #     await message.answer(f'Вы регистрируетесь на игру {game["name_game"]}')
+        #     await RegisterOrder.user_name.set()
+        #     await message.answer('Теперь укажите имя:')
+        #     return
+
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         keyboard.add(KeyboardButton('Создать игру'))
         await message.answer("Здравствуйте!", reply_markup=keyboard)
@@ -103,7 +110,7 @@ async def period_reg(call: types.CallbackQuery):
         game_data['limit_price'] = call.data
     else:
         # Заменил на None в связи с проблемой кодировки русских символов в json
-        game_data['limit_price'] = None
+        game_data['limit_price'] = 'Нет ограничений'
     keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     buttons = [
         types.InlineKeyboardButton(text='до 25.12.2021', callback_data='25.12.2021'),
@@ -119,9 +126,12 @@ async def period_reg(call: types.CallbackQuery):
 async def cmd_register(message: types.Message, state: FSMContext):
     try:
         game_id = game_data['game_id']
-        user_id = message['from']['id']
+        date_send = game_data['date_send']
+
+        user_id = str(message.from_user.id)
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         keyboard.add(KeyboardButton(text='Отмена'))
+        await state.update_data(date_send=date_send)
         await state.update_data(game_id=game_id)
         await state.update_data(user_id=user_id)
         await RegisterOrder.user_name.set()
@@ -161,7 +171,7 @@ async def logging_user(call: types.CallbackQuery):
     date_today = datetime.date.today()
     bot_name = await bot.get_me()
     game_data['date_send'] = f'{choice_day}.{date_today.month}.{date_today.year}'
-    add_game(game_data)
+    # add_game(game_data)
     await call.message.answer("Отлично! Тайный Санта уже готовится к раздаче подарков!",
                               reply_markup=types.ReplyKeyboardRemove())
     await call.message.answer(
@@ -177,45 +187,54 @@ def validate_email(email):
     return bool(re.fullmatch(regex, email))
 
 
-def init_db():
-    if not os.path.isfile('users.json'):
-        users_db = {
-            'users': []
-        }
-        with open('users.json', 'a') as users:
-            json.dump(users_db, users)
+# def init_db():
+#     if not os.path.isfile('users.json'):
+#         users_db = {
+#             'users': []
+#         }
+#         with open('users.json', 'w') as users:
+#             json.dump(users_db, users, ensure_ascii=False, indent=3)
 
-    if not os.path.isfile('games.json'):
-        game_db = {
-            'games': []
-        }
-        with open('games.json', 'w') as games:
-            json.dump(game_db, games)
+    # if not os.path.isfile('games.json'):
+    #     game_db = {
+    #         'games': []
+    #     }
+    #     with open('games.json', 'w') as games:
+    #         json.dump(game_db, games, ensure_ascii=False, indent=3)
 
 
 def add_user(user):
-    with open('users.json', 'r') as users:
-        users_db = json.load(users)
-        users_db['users'].append(user)
-    with open('users.json', 'w') as users:
-        json.dump(users_db, users)
+    try:
+        with open('users.json', 'r') as users:
+            users_db = json.load(users)
+            users_db['users'].append(user)
+
+        with open('users.json', 'w') as users:
+            json.dump(users_db, users, ensure_ascii=False, indent=3)
+    except:
+        init_db()
 
 
-def add_game(game):
-    with open('games.json', 'r') as games:
-        games_db = json.load(games)
-        games_db['games'].append(game)
-    with open('games.json', 'w') as games:
-        json.dump(games_db, games)
+# def add_game(game):
+#     try:
+#         with open('games.json', 'r') as games:
+#             games_db = json.load(games)
+#             games_db['games'].append(game)
+#         with open('games.json', 'w') as games:
+#             json.dump(games_db, games, ensure_ascii=False, indent=3)
+#     except:
+#         init_db()
 
 
-def get_game(game_id):
-    with open('games.json', 'r') as games:
-        games_db = json.load(games)
-        for game in games_db['games']:
-            if game['game_id'] == game_id:
-                return game
-        return None
+# def get_game(game_id):
+#     print(game_id)
+#     with open('games.json', 'r') as games:
+#         games_db = json.load(games)
+#         print()
+#         for game in games_db['games']:
+#             if game['game_id'] == game_id:
+#                 return game
+#         return None
 
 
 @dp.message_handler(state=RegisterOrder.game_id)
@@ -275,7 +294,7 @@ async def get_user_email(message: types.Message, state: FSMContext):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.add(KeyboardButton(text='Изменить email'), KeyboardButton(text='Отмена'))
     await message.answer(
-        'Теперь укажите ваш список желаний (введите стоп, что бы продолжить дальше):', reply_markup=keyboard)
+        'Теперь укажите ваш список желаний:', reply_markup=keyboard)
 
 
 @dp.message_handler(state=RegisterOrder.user_wishlist)
@@ -296,108 +315,162 @@ async def write_letter_to_santa(message: types.Message, state: FSMContext):
     await RegisterOrder.next()
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     keyboard.add(
-        KeyboardButton(text='Завершить!', callback_data='register_finish'),
+        KeyboardButton(text='Отправить письмо санте!', callback_data='register_finish'),
         KeyboardButton(text='Изменить письмо санте'),
         KeyboardButton(text='Отмена')
     )
-    await message.answer('Подтвердите регистрацию!', reply_markup=keyboard)
+    await message.answer('🎅', reply_markup=keyboard)
 
 
 @dp.message_handler(state=RegisterOrder.register_finish)
 async def register_finish(message: types.Message, state: FSMContext):
-    if message.text == 'Завершить!':
+    # game_db = {
+    #     'games': []
+    # }
+    # with open('games.json', 'a+') as file:
+    #     json.dump(game_db, file, ensure_ascii=False, indent=3)
+
+    try:
+        with open('games.json') as f:
+            file_data = json.load(f)
+            file_data.append(game_data)
+        with open('games.json', 'w') as file:
+            json.dump(file_data, file, ensure_ascii=False, default=str, indent=3)
+    except:
+        games = []
+        games.append(game_data)
+        with open('games.json', 'a+') as file:
+            json.dump(games, file, ensure_ascii=False, default=str, indent=3)
+
+
+    if message.text == 'Отправить письмо санте!':
         user_data = await state.get_data()
-        user_data['game_id'] = int(game_data['game_id'])
-        user_data['user_id'] = game_data['user_id']
-        add_user(user_data)
-        game = get_game(int(game_data["game_id"]))
-        await message.answer(f'Вы зарегистрированы на игру {game["name_game"]}. Ожидайте сообщения о начале игры!')
+
+        try:
+            with open('users.json') as f:
+                file_data = json.load(f)
+                file_data.append(user_data)
+            with open('users.json', 'w') as file:
+                json.dump(file_data, file, ensure_ascii=False, default=str, indent=3)
+        except:
+            users = []
+            users.append(user_data)
+            with open('users.json', 'a+') as file:
+                json.dump(users, file, ensure_ascii=False, default=str, indent=3)
+
+        # add_user(user_data)
+
         await state.finish()
-
-
-
-    user_data = await state.get_data()
-    add_user(user_data)
-    await state.finish()
-    await message.answer('🎅', reply_markup=keyboard)
-
-
-@dp.message_handler(text='Отправить письмо санте!')
-async def wish_sheet(message: types.Message):
-    keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    buttons = [
-        types.InlineKeyboardButton(text='Посмотреть список желаний:', callback_data='Посмотреть список желаний:'),
-    ]
-    keyboard.row(*buttons)
-    await message.answer('Посмотрите список участников и желаемые подарки!', reply_markup=keyboard)
+        keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+        buttons = [
+            types.InlineKeyboardButton(text='Посмотреть список желаний:', callback_data='Посмотреть список желаний:'),
+        ]
+        keyboard.row(*buttons)
+        await message.answer('Посмотрите список участников и желаемые подарки!', reply_markup=keyboard)
 
 
 @dp.callback_query_handler(text='Посмотреть список желаний:')
 async def random_choice(call: types.CallbackQuery):
-
     keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     buttons = [
         types.InlineKeyboardButton(text='Посмотреть список желаний участников!', callback_data='список')
     ]
     keyboard.row(*buttons)
-    await call.message.answer('Вы зарегистрированы на игру. Ожидайте сообщения о начале игры!')
+    await call.message.answer(f'Превосходно, ты в игре! {game_data["date_reg"]} мы проведем жеребьевку'
+                              f' и ты узнаешь имя и контакты своего тайного друга. Ему и нужно будет подарить подарок!')
     await call.answer()
-    for i in range(3):
-        await call.message.answer(f'{i}')
+    participants_of_game_1 = []
+    participants_of_game_2 = []
+    first_date = '25.12.2021'
+    second_date = '31.12.2021'
 
-    # with open('users.json', 'r') as users:
-    #     users_db = json.load(users)
+    with open('games.json', 'r') as games:
+        games_db = json.load(games)
+    with open('users.json', 'r') as users:
+        users_d = json.load(users)
+    g = None
+    m = None
+    for user in users_d:
+        for game in games_db:
+            if user['game_id'] == game['game_id'] and user['date_send'] == game['date_send']:
+                if user['date_send'] == first_date:
+                    m = user['user_id']
+                    g = 1
+                    participants_of_game_1.append([user['user_id'], user['user_name'], user['user_wishlist']])
+                if user['date_send'] == second_date:
+                    m = user['user_id']
+                    participants_of_game_2.append([user['user_id'], user['user_name'], user['user_wishlist']])
 
-    # await message.answer()
-    # for wish in game_data["user_wishlist"]:
-    #     await message.answer(
-    #         fmt.text(
-    #             fmt.text(wish),
-    #         ), reply_markup=types.ReplyKeyboardRemove()
-    #     )
 
 
-    user_id = str(call.from_user.id)
-    # await bot.forward_message(chat_id=user_id, from_chat_id=message.from_user.id, message_id=message.message_id)
-    # user_date_1 = datetime.datetime(2021, 12, 18, 17, 56, 10)
-    # user_date_2 = datetime.datetime(2021, 12, 18, 17, 57, 10)
+    print(game_data['date_send'])
+    print(first_date)
+    print(call.from_user.id)
+    print(m)
+
+    if call.from_user.id == m and game_data['date_send'] == first_date:
+        for wish in participants_of_game_1:
+            await call.message.answer(f"Игрок: {wish[1]} желает получить:\n\n{wish[2]}")
+    if call.from_user.id == m and game_data['date_send'] == second_date:
+        for wish in participants_of_game_2:
+            await call.message.answer(f"Игрок: {wish[1]} желает получить:\n\n{wish[2]}")
+
+
 
     user_date_1 = datetime.datetime.today() + timedelta(minutes=1)
     user_date_2 = datetime.datetime.today() + timedelta(minutes=2)
 
     flag_1 = 0
-    flag_2 = 0
+    stop_send_2 = 0
+    stop_send_1 = 0
     while True:
         date_today = datetime.datetime.today()
 
         # if user_date_1.date() == date_today.date():
         time.sleep(10)
         if user_date_1 < date_today:
-            users_1 = [2021, 12, 31, 12, 00, 00]
-            while flag_1 <= len(users_1)-1:
-                flag_1 += 1
+            # users_1 = [2021, 12, 31, 12, 00, 00]
+            print(len(participants_of_game_1)-1)
+            print(participants_of_game_1)
 
-                await asyncio.sleep(1)
-                await bot.send_message(user_id, 'Игра: x началась!')
-                if flag_1 == len(users_1):
+            # while flag_1 <= len(participants_of_game_1):
+            #     flag_1 += 1
+
+                # if stop_send < flag_1:
+            for user_id in participants_of_game_1:
+                stop_send_1 += 1
+                if stop_send_1 > len(participants_of_game_1) - 1:
+                    print('stop')
                     break
+                await asyncio.sleep(1)
+                await bot.send_message(user_id[0], 'Игра началась!')
+                print(stop_send_1,'---')
+
+            # if stop_send == len(participants_of_game_1):
+            #     print(stop_send, len(participants_of_game_1))
+            #     break
+
         print(1, date_today)
         # if user_date_2.date() == date_today.date():
 
         if user_date_2 < date_today:
-            users_2 = [2021, 12, 31, 12, 00, 00]
-            while flag_2 != len(users_2):
-                flag_2 += 1
-                await asyncio.sleep(1)
-                await bot.send_message(user_id, 'Игра: y началась!')
-                if flag_2 == len(users_2):
-                    break
-        print(2, date_today)
+            # users_1 = [2021, 12, 31, 12, 00, 00]
+            print(len(participants_of_game_2) - 1)
+            print(participants_of_game_2)
 
-        if user_date_2 + timedelta(seconds=30) < date_today:
-            await bot.send_message(user_id, f'{date_today}--')
-            break
-    await bot.send_message(user_id, 'end')
+            # while flag_1 <= len(participants_of_game_2):
+            #     flag_1 += 1
+
+            # if stop_send < flag_1:
+            for user_id in participants_of_game_2:
+                stop_send_2 += 1
+                if stop_send_2 > len(participants_of_game_2) - 1:
+                    print('stop')
+                    break
+                await asyncio.sleep(1)
+                await bot.send_message(user_id[0], 'Игра началась!')
+                print(stop_send_2, '---')
+        # await bot.send_message(user_id, 'end')
 
 
 
@@ -475,8 +548,35 @@ async def name_game(message: types.Message):
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
 
+# with open('games.json', 'r') as games:
+#     games_db = json.load(games)
+# with open('users.json', 'r') as users:
+#     users_d = json.load(users)
+# g = None
+# m = None
+# for user in users_d:
+#     for game in games_db:
 
 
+            # if user['game_id'] == game['game_id'] and user['date_send'] == game['date_send']:
+            #     if user['date_send'] == first_date:
+            #         m = user['user_id']
+            #         g = 1
+            #         participants_of_game_1.append([user['user_id'], user['user_name'], user['user_wishlist']])
+            #     if user['date_send'] == second_date:
+            #         m = user['user_id']
+            #         participants_of_game_2.append([user['user_id'], user['user_name'], user['user_wishlist']])
+
+
+
+
+# for wishlist in users_db.values():
+#     for wish in wishlist:
+#         print(wish)
+#         x.append([wish['user_name'], wish['user_wishlist']])
+#     print(x)
+# for i in x:
+#     print(i[0])
 
 #
 # user_date = datetime.datetime(2021, 12, 31, 15, 39, 00)
