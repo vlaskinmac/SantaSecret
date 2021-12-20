@@ -649,16 +649,19 @@ async def random_choice(call: types.CallbackQuery):
 
 @dp.message_handler()
 async def name_game(message: types.Message):
-    if not game_data['name_game']:
-        game_data['name_game'] = message.text
-        game_data['game_id'] = random.randint(101, 701)
-        await bot.delete_message(message.from_user.id, message.message_id)
-        keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
-        button_yes = types.InlineKeyboardButton(text='ДА', callback_data='yes')
-        button_no = types.InlineKeyboardButton(text='НЕТ', callback_data='pp')
-        keyboard.add(button_yes, button_no)
-        await message.answer(f"Для игры - {game_data['name_game']}\n\nТребуется ограничение стоимости подарка?",
-                             reply_markup=keyboard)
+    try:
+        if not game_data['name_game']:
+            game_data['name_game'] = message.text
+            game_data['game_id'] = random.randint(101, 701)
+            await bot.delete_message(message.from_user.id, message.message_id)
+            keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
+            button_yes = types.InlineKeyboardButton(text='ДА', callback_data='yes')
+            button_no = types.InlineKeyboardButton(text='НЕТ', callback_data='pp')
+            keyboard.add(button_yes, button_no)
+            await message.answer(f"Для игры - {game_data['name_game']}\n\nТребуется ограничение стоимости подарка?",
+                                 reply_markup=keyboard)
+    except:
+        pass
 
 
 
