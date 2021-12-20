@@ -165,6 +165,8 @@ async def logging_user(call: types.CallbackQuery):
 
     keyboard.add(types.InlineKeyboardButton(text='Посмотреть все ссылки игр?', callback_data='links')),
     keyboard.add(types.InlineKeyboardButton(text='Запустить жеребьевку сейчас', callback_data='Запустить жеребьевку сейчас')),
+    keyboard.add(types.InlineKeyboardButton(text='Посмотреть список зарегистрированных участников игры',
+                                            callback_data='Посмотреть список')),
     keyboard.add(types.InlineKeyboardButton(text='Удалить участника', callback_data='Удалить участника')),
 
     await call.message.answer("Отлично! Тайный Санта уже готовится к раздаче подарков!")
@@ -336,6 +338,21 @@ async def del_user(call: types.CallbackQuery):
         else:
             with open('users.json', 'w') as file:
                 json.dump(user, file, ensure_ascii=False, default=str, indent=3)
+
+
+@dp.callback_query_handler(text='Посмотреть список')
+async def list_users(call: types.CallbackQuery):
+    keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    if call.data == 'Посмотреть список':
+        with open('users.json') as f:
+            file_data = json.load(f)
+        for user in file_data:
+            buttons = [
+                types.InlineKeyboardButton(
+                    text=f'{user["user_name"]}',
+                    callback_data=f'{user["user_name"]}6')]
+            keyboard.row(*buttons)
+        await call.message.answer(f"Выберите кого удалить", reply_markup=keyboard)
 
 
 @dp.callback_query_handler(text_contains='Запустить жеребьевку сейчас')
