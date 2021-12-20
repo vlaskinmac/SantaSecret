@@ -647,6 +647,7 @@ async def random_choice(call: types.CallbackQuery):
         print('-----')
 
 
+
 @dp.message_handler()
 async def name_game(message: types.Message):
     try:
