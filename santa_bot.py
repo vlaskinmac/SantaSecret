@@ -664,6 +664,5 @@ async def name_game(message: types.Message):
         pass
 
 
-
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
