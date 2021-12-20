@@ -28,6 +28,8 @@ game_data = {}
 participants_of_game = []
 collect_games = []
 
+flag = []
+
 
 class RegisterOrder(StatesGroup):
     game_id = State()
@@ -47,28 +49,44 @@ async def cmd_start(message: types.Message, state: FSMContext):
     msg = message.text
     msg_text = re.sub(r'\d+', "", str(msg))
     if not str(msg_text) == '/start reg' or str(msg_text) == 'Отмена':
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-        keyboard.add(KeyboardButton('Создать игру'))
-        await message.answer("Здравствуйте!", reply_markup=keyboard)
+        keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+
+        keyboard.add(types.InlineKeyboardButton(text='Создать игру', callback_data='Создать игру')),
+        keyboard.add(types.InlineKeyboardButton(text='Посмотреть все ссылки созданных игр', callback_data='links')),
+        keyboard.add(types.InlineKeyboardButton(text='Запустить жеребьевку сейчас',
+                                                callback_data='Запустить жеребьевку сейчас')),
+        keyboard.add(types.InlineKeyboardButton(text='Посмотреть список зарегистрированных участников',
+                                                callback_data='Посмотреть список')),
+        await message.answer("Организуй тайный обмен подарками, запусти праздничное настроение!",
+                             reply_markup=keyboard)
     else:
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         keyboard.add(KeyboardButton(text='Регистрация'))
-        await message.answer(
-            fmt.text(
-                fmt.text("Замечательно!\n\nТы собираешься участвовать в игре:\n\n"),
-                fmt.text(f"Название игры:   {game_data['name_game']}\n"),
-                fmt.text(f"\nЦеновой диапазон подарка:   {game_data['limit_price']}\n"),
-                fmt.text(f"\nПериод регистрации участников:   {game_data['date_reg']}\n"),
-                fmt.text(f"\nДата отправки подарков:   {game_data['date_send']}\n")
-            ), reply_markup=keyboard
 
-        )
+        msg_text = re.search(r'\d+$', str(msg)).group()
+        print(msg_text)
+        if msg_text:
+            flag.append(msg_text)
+        with open('games.json', 'r') as games:
+            games_db = json.load(games)
+        for game_name in games_db:
+            if game_name['game_id'] == int(msg_text):
+                name = game_name['name_game']
+                await message.answer(
+                    fmt.text(
+                        fmt.text("Замечательно!\n\nТы собираешься участвовать в игре:\n\n"),
+                        fmt.text(f"Название игры:   {name}\n"),
+                        fmt.text(f"\nЦеновой диапазон подарка:   {game_name['limit_price']}\n"),
+                        fmt.text(f"\nПериод регистрации участников:   {game_name['date_reg']}\n"),
+                        fmt.text(f"\nДата отправки подарков:   {game_name['date_send']}\n")
+                    ), reply_markup=keyboard
+                )
 
 
-@dp.message_handler(text='Создать игру')
+@dp.callback_query_handler(text='Создать игру')
 async def create_game(message: types.Message):
     game_data['name_game'] = None
-    await message.answer("Введите название игры")
+    await bot.send_message(message.from_user.id, "Введите название игры")
 
 
 @dp.callback_query_handler(text='yes')
@@ -111,25 +129,36 @@ async def period_reg(call: types.CallbackQuery):
 @dp.message_handler(text='Регистрация')
 @dp.message_handler(Text(equals="Изменить имя"), state="*")
 async def cmd_register(message: types.Message, state: FSMContext):
-    try:
-        game_id = game_data['game_id']
-        date_send = game_data['date_send']
-        date_reg = game_data['date_reg']
+    with open('games.json', 'r') as games:
+        games_db = json.load(games)
+    if message.text == 'Регистрация':
+        print(flag)
+        number_game = re.search(r'\d+', str(flag)).group()
+        for game_name in games_db:
+            if int(number_game) == game_name['game_id']:
+                game_id = game_name['game_id']
+                date_send = game_name['date_send']
+                date_reg = game_name['date_reg']
+                print(game_name['name_game'])
         user_id = str(message.from_user.id)
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        keyboard.add(KeyboardButton(text='Отмена'))
         await state.update_data(date_send=date_send)
         await state.update_data(date_reg=date_reg)
         await state.update_data(game_id=game_id)
         await state.update_data(user_id=user_id)
         await RegisterOrder.user_name.set()
-        await message.answer('Теперь укажите имя:', reply_markup=keyboard)
-    except IndexError:
-        await message.reply('Введите id игры.')
-        await RegisterOrder.game_id.set()
-    except ValueError:
-        await message.answer('id игры должен быть целым числом')
-        return
+    else:
+        game_id = game_data['game_id']
+        date_send = game_data['date_send']
+        date_reg = game_data['date_reg']
+    user_id = str(message.from_user.id)
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.add(KeyboardButton(text='Отмена'))
+    await state.update_data(date_send=date_send)
+    await state.update_data(date_reg=date_reg)
+    await state.update_data(game_id=game_id)
+    await state.update_data(user_id=user_id)
+    await RegisterOrder.user_name.set()
+    await message.answer('Теперь укажите имя:', reply_markup=keyboard)
 
 
 @dp.callback_query_handler(text_contains='q')
@@ -162,12 +191,12 @@ async def logging_user(call: types.CallbackQuery):
     game_data['date_send'] = choice_day
     game_data['link_game'] = f'https://t.me/{bot_name.username}?start=reg{game_data["game_id"]}'
     keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-
-    keyboard.add(types.InlineKeyboardButton(text='Посмотреть все ссылки игр?', callback_data='links')),
-    keyboard.add(types.InlineKeyboardButton(text='Запустить жеребьевку сейчас', callback_data='Запустить жеребьевку сейчас')),
-    keyboard.add(types.InlineKeyboardButton(text='Посмотреть список зарегистрированных участников игры',
+    keyboard.add(types.InlineKeyboardButton(text='Создать новую игру', callback_data='Создать игру')),
+    keyboard.add(types.InlineKeyboardButton(text='Посмотреть все ссылки созданных игр', callback_data='links')),
+    keyboard.add(
+        types.InlineKeyboardButton(text='Запустить жеребьевку сейчас', callback_data='Запустить жеребьевку сейчас')),
+    keyboard.add(types.InlineKeyboardButton(text='Посмотреть список зарегистрированных участников',
                                             callback_data='Посмотреть список')),
-    keyboard.add(types.InlineKeyboardButton(text='Удалить участника', callback_data='Удалить участника')),
 
     await call.message.answer("Отлично! Тайный Санта уже готовится к раздаче подарков!")
     await call.message.answer(
@@ -193,7 +222,7 @@ async def logging_user(call: types.CallbackQuery):
 @dp.callback_query_handler(text_contains='links')
 async def print_links(call: types.CallbackQuery):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    keyboard.add(KeyboardButton(text='Создать игру'))
+    keyboard.add(KeyboardButton(text='Создать игру', callback_data='клик'))
     with open('games.json', 'r') as games:
         games_db = json.load(games)
     for links in games_db:
@@ -311,6 +340,41 @@ async def register_finish(message: types.Message, state: FSMContext):
         await message.answer('Посмотрите список участников и желаемые подарки!', reply_markup=keyboard)
 
 
+@dp.callback_query_handler(text='Посмотреть список')
+async def list_games(call: types.CallbackQuery):
+    keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    if call.data == 'Посмотреть список':
+        with open('games.json', 'r') as games:
+            games_db = json.load(games)
+        for game in games_db:
+            buttons = [
+                types.InlineKeyboardButton(
+                    text=f'{game["name_game"]}',
+                    callback_data=f'{game["name_game"]}111')]
+            keyboard.row(*buttons)
+        await call.message.answer(f"Выберите игру:\n\n", reply_markup=keyboard)
+
+
+@dp.callback_query_handler(text_contains='111')
+async def list_games(call: types.CallbackQuery):
+    keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    choice_game = re.sub(r'111$', "", call.data)
+    with open('games.json', 'r') as games:
+        games_db = json.load(games)
+    with open('users.json') as f:
+        file_data = json.load(f)
+    for game in games_db:
+        for user in file_data:
+            if choice_game == game["name_game"]:
+                if game["game_id"] == user["game_id"]:
+                    buttons = [
+                        types.InlineKeyboardButton(
+                            text=f'{user["user_name"]}',
+                            callback_data=f'{user["user_name"]}6')]
+                    keyboard.row(*buttons)
+    await call.message.answer(f"Удалить участника", reply_markup=keyboard)
+
+
 @dp.callback_query_handler(text='Удалить участника')
 async def choice_del_user(call: types.CallbackQuery):
     keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
@@ -331,55 +395,67 @@ async def del_user(call: types.CallbackQuery):
     del_user = re.sub(r'6', "", call.data)
     with open('users.json') as f:
         file_data = json.load(f)
+    users = []
     for user in file_data:
-        if del_user == user["user_name"]:
+        if str(del_user) == user["user_name"]:
             await call.message.answer(f'{user["user_name"]} - удален')
             del user
         else:
-            with open('users.json', 'w') as file:
-                json.dump(user, file, ensure_ascii=False, default=str, indent=3)
-
-
-@dp.callback_query_handler(text='Посмотреть список')
-async def list_users(call: types.CallbackQuery):
-    keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    if call.data == 'Посмотреть список':
-        with open('users.json') as f:
-            file_data = json.load(f)
-        for user in file_data:
-            buttons = [
-                types.InlineKeyboardButton(
-                    text=f'{user["user_name"]}',
-                    callback_data=f'{user["user_name"]}6')]
-            keyboard.row(*buttons)
-        await call.message.answer(f"Выберите кого удалить", reply_markup=keyboard)
+            users.append(user)
+    with open('users.json', 'w') as file:
+        json.dump(users, file, ensure_ascii=False, default=str, indent=3)
 
 
 @dp.callback_query_handler(text_contains='Запустить жеребьевку сейчас')
+async def list_games(call: types.CallbackQuery):
+    keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    if call.data == 'Запустить жеребьевку сейчас':
+        with open('games.json', 'r') as games:
+            games_db = json.load(games)
+        for game in games_db:
+            buttons = [
+                types.InlineKeyboardButton(
+                    text=f'{game["name_game"]}',
+                    callback_data=f'{game["name_game"]}999')]
+            keyboard.row(*buttons)
+        await call.message.answer(f"Выберите игру для запуска:\n\n", reply_markup=keyboard)
+
+
+@dp.callback_query_handler(text_contains='999')
+async def choice_game_run(call: types.CallbackQuery):
+    game = re.sub(r'999$', "", call.data)
+    keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    keyboard.add(types.InlineKeyboardButton(text='Запустить жеребьевку', callback_data='Запустить жеребьевку'))
+    await call.message.answer(f"Выбрана игра:\n{game}", reply_markup=keyboard)
+
+
+@dp.callback_query_handler(text_contains='Запустить жеребьевку')
 @dp.callback_query_handler(text='Посмотреть список желаний:')
+@dp.callback_query_handler(text_contains='Посмотреть список желаний:')
 async def random_choice(call: types.CallbackQuery):
-    if not call.data == 'Запустить жеребьевку сейчас':
-        await call.message.answer(call.data)
+    if call.data == 'Посмотреть список желаний:':
+        with open('games.json', 'r') as games:
+            games_db = json.load(games)
+        with open('users.json', 'r') as users:
+            users_d = json.load(users)
         keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         buttons = [
             types.InlineKeyboardButton(text='Посмотреть список желаний участников!', callback_data='список')
         ]
         keyboard.row(*buttons)
-        await call.message.answer(f'Превосходно, ты в игре! {game_data["date_reg"]} мы проведем жеребьевку'
-                                  f' и ты узнаешь имя и контакты своего тайного друга.'
-                                  f' Ему и нужно будет подарить подарок!', reply_markup=types.ReplyKeyboardRemove())
+        for user in users_d:
+            if user['user_id'] == call.from_user.id:
+                await call.message.answer(f'Превосходно, ты в игре! {user["date_reg"]} мы проведем жеребьевку'
+                                          f' и ты узнаешь имя и контакты своего тайного друга.'
+                                          f' Ему и нужно будет подарить подарок!',
+                                          reply_markup=types.ReplyKeyboardRemove())
         await call.answer()
-        with open('games.json', 'r') as games:
-            games_db = json.load(games)
-        with open('users.json', 'r') as users:
-            users_d = json.load(users)
         for user in users_d:
             collect_games.append(user['game_id'])
             for game in games_db:
                 if user['game_id'] == game['game_id'] and user['date_reg'] == game['date_reg']:
-                    if user['date_reg'] == game_data['date_reg']:
-                        participants_of_game.append([user['user_id'], user['user_name'], user['user_wishlist'],
-                                                     user['user_email'], user['letter_to_santa']])
+                    participants_of_game.append([user['user_id'], user['user_name'], user['user_wishlist'],
+                                                 user['user_email'], user['letter_to_santa']])
         print(participants_of_game)
         for wish in participants_of_game:
             print(wish)
@@ -469,8 +545,18 @@ async def random_choice(call: types.CallbackQuery):
     #             break
     #         break
 
-# block for test
-
+    # block for test
+    if call.data != 'Запустить жеребьевку':
+        with open('games.json', 'r') as games:
+            games_db = json.load(games)
+        with open('users.json', 'r') as users:
+            users_d = json.load(users)
+        for user in users_d:
+            await call.message.answer(f'Превосходно, ты в игре! {user["date_reg"]} мы проведем жеребьевку'
+                                      f' и ты узнаешь имя и контакты своего тайного друга.'
+                                      f' Ему и нужно будет подарить подарок!', reply_markup=types.ReplyKeyboardRemove())
+            break
+        await call.answer()
         user_date_1 = datetime.datetime.today() + timedelta(minutes=1)
         while True:
             date_today = datetime.datetime.today()
@@ -518,9 +604,9 @@ async def random_choice(call: types.CallbackQuery):
             collect_games.append(user['game_id'])
             for game in games_db:
                 if user['game_id'] == game['game_id'] and user['date_reg'] == game['date_reg']:
-                    if user['date_reg'] == game_data['date_reg']:
-                        participants_of_game.append([user['user_id'], user['user_name'], user['user_wishlist'],
-                                                     user['user_email'], user['letter_to_santa']])
+                    # if user['date_reg'] == game_data['date_reg']:
+                    participants_of_game.append([user['user_id'], user['user_name'], user['user_wishlist'],
+                                                 user['user_email'], user['letter_to_santa']])
         while True:
             time.sleep(2)
             for user in users_d:
@@ -561,16 +647,19 @@ async def random_choice(call: types.CallbackQuery):
 
 @dp.message_handler()
 async def name_game(message: types.Message):
-    if not game_data['name_game']:
-        game_data['name_game'] = message.text
-        game_data['game_id'] = random.randint(101, 701)
-        await bot.delete_message(message.from_user.id, message.message_id)
-        keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
-        button_yes = types.InlineKeyboardButton(text='ДА', callback_data='yes')
-        button_no = types.InlineKeyboardButton(text='НЕТ', callback_data='pp')
-        keyboard.add(button_yes, button_no)
-        await message.answer(f"Для игры - {game_data['name_game']}\n\nТребуется ограничение стоимости подарка?",
-                             reply_markup=keyboard)
+    try:
+        if not game_data['name_game']:
+            game_data['name_game'] = message.text
+            game_data['game_id'] = random.randint(101, 701)
+            await bot.delete_message(message.from_user.id, message.message_id)
+            keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
+            button_yes = types.InlineKeyboardButton(text='ДА', callback_data='yes')
+            button_no = types.InlineKeyboardButton(text='НЕТ', callback_data='pp')
+            keyboard.add(button_yes, button_no)
+            await message.answer(f"Для игры - {game_data['name_game']}\n\nТребуется ограничение стоимости подарка?",
+                                 reply_markup=keyboard)
+    except:
+        pass
 
 
 if __name__ == '__main__':
