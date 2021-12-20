@@ -94,7 +94,7 @@ async def period_reg(call: types.CallbackQuery):
     das = user_date + timedelta(weeks=4)
     count_date = das - user_date
     days = user_date + timedelta(days=count_date.days)
-    keyboard = types.InlineKeyboardMarkup(row_width=4, resize_keyboard=True, one_time_keyboard=True)
+    keyboard = types.InlineKeyboardMarkup(row_width=3, resize_keyboard=True, one_time_keyboard=True)
     col = []
     for i in range(int(days.day) + 1):
         date_calendar = user_date + timedelta(days=i)
@@ -141,7 +141,7 @@ async def date_send(call: types.CallbackQuery):
     das = user_date + timedelta(weeks=4)
     count_date = das - user_date
     days = user_date + timedelta(days=count_date.days)
-    keyboard = types.InlineKeyboardMarkup(row_width=4, resize_keyboard=True, one_time_keyboard=True)
+    keyboard = types.InlineKeyboardMarkup(row_width=3, resize_keyboard=True, one_time_keyboard=True)
     col = []
     for i in range(int(days.day) + 1):
         date_calendar = user_date + timedelta(days=i)
@@ -162,12 +162,12 @@ async def logging_user(call: types.CallbackQuery):
     game_data['date_send'] = choice_day
     game_data['link_game'] = f'https://t.me/{bot_name.username}?start=reg{game_data["game_id"]}'
     keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    buttons = [
-        types.InlineKeyboardButton(text='Посмотреть все ссылки игр?', callback_data='links'),
-    ]
-    await call.message.answer("Отлично! Тайный Санта уже готовится к раздаче подарков!"
-                              )
-    keyboard.add(*buttons)
+
+    keyboard.add(types.InlineKeyboardButton(text='Посмотреть все ссылки игр?', callback_data='links')),
+    keyboard.add(types.InlineKeyboardButton(text='Запустить жеребьевку сейчас', callback_data='Запустить жеребьевку сейчас')),
+    keyboard.add(types.InlineKeyboardButton(text='Удалить участника', callback_data='Удалить участника')),
+
+    await call.message.answer("Отлично! Тайный Санта уже готовится к раздаче подарков!")
     await call.message.answer(
         fmt.text(
             fmt.text("Перешлите ссылку новому участнику игры для регистрации:\n\n"),
@@ -175,7 +175,6 @@ async def logging_user(call: types.CallbackQuery):
             fmt.text(f'https://t.me/{bot_name.username}?start=reg{game_data["game_id"]}'),
         ), reply_markup=keyboard
     )
-
     try:
         with open('games.json') as f:
             file_data = json.load(f)
@@ -301,7 +300,6 @@ async def register_finish(message: types.Message, state: FSMContext):
             users.append(user_data)
             with open('users.json', 'a+') as file:
                 json.dump(users, file, ensure_ascii=False, default=str, indent=3)
-
         await state.finish()
         keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         buttons = [
@@ -311,40 +309,116 @@ async def register_finish(message: types.Message, state: FSMContext):
         await message.answer('Посмотрите список участников и желаемые подарки!', reply_markup=keyboard)
 
 
+@dp.callback_query_handler(text='Удалить участника')
+async def choice_del_user(call: types.CallbackQuery):
+    keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    if call.data == 'Удалить участника':
+        with open('users.json') as f:
+            file_data = json.load(f)
+        for user in file_data:
+            buttons = [
+                types.InlineKeyboardButton(
+                    text=f'{user["user_name"]}',
+                    callback_data=f'{user["user_name"]}6')]
+            keyboard.row(*buttons)
+        await call.message.answer(f"Выберите кого удалить", reply_markup=keyboard)
+
+
+@dp.callback_query_handler(text_contains='6')
+async def del_user(call: types.CallbackQuery):
+    del_user = re.sub(r'6', "", call.data)
+    with open('users.json') as f:
+        file_data = json.load(f)
+    for user in file_data:
+        if del_user == user["user_name"]:
+            await call.message.answer(f'{user["user_name"]} - удален')
+            del user
+        else:
+            with open('users.json', 'w') as file:
+                json.dump(user, file, ensure_ascii=False, default=str, indent=3)
+
+
+@dp.callback_query_handler(text_contains='Запустить жеребьевку сейчас')
 @dp.callback_query_handler(text='Посмотреть список желаний:')
 async def random_choice(call: types.CallbackQuery):
-    keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    buttons = [
-        types.InlineKeyboardButton(text='Посмотреть список желаний участников!', callback_data='список')
-    ]
-    keyboard.row(*buttons)
-    await call.message.answer(f'Превосходно, ты в игре! {game_data["date_reg"]} мы проведем жеребьевку'
-                              f' и ты узнаешь имя и контакты своего тайного друга. Ему и нужно будет подарить подарок!')
-    await call.answer()
-
-    with open('games.json', 'r') as games:
-        games_db = json.load(games)
-    with open('users.json', 'r') as users:
-        users_d = json.load(users)
-
-    for user in users_d:
-        collect_games.append(user['game_id'])
-        for game in games_db:
-            if user['game_id'] == game['game_id'] and user['date_reg'] == game['date_reg']:
-                if user['date_reg'] == game_data['date_reg']:
-                    participants_of_game.append([user['user_id'], user['user_name'], user['user_wishlist'],
-                                                 user['user_email'], user['letter_to_santa']])
-    for wish in participants_of_game:
-        await call.message.answer(f"Игрок: {wish[1]} желает получить:\n\n{wish[2]}")
-
-    # while True:
-    #     date_today = datetime.datetime.today()
-    #     time.sleep(60 * 60)
-    #     date_reg = re.sub(r'q', "", game_data['date_reg'])
-    #     day, month, year = date_reg.split(".")
-    #     user_date = datetime.datetime(int(year), int(month), int(day))
-    #     activate = user_date + timedelta(hours=12)
-    #     if activate <= date_today:
+    await call.message.answer(call.data)
+    if not call.data == 'Запустить жеребьевку сейчас':
+        await call.message.answer(call.data)
+        keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+        buttons = [
+            types.InlineKeyboardButton(text='Посмотреть список желаний участников!', callback_data='список')
+        ]
+        keyboard.row(*buttons)
+        await call.message.answer(f'Превосходно, ты в игре! {game_data["date_reg"]} мы проведем жеребьевку'
+                                  f' и ты узнаешь имя и контакты своего тайного друга.'
+                                  f' Ему и нужно будет подарить подарок!', reply_markup=types.ReplyKeyboardRemove())
+        await call.answer()
+        with open('games.json', 'r') as games:
+            games_db = json.load(games)
+        with open('users.json', 'r') as users:
+            users_d = json.load(users)
+        for user in users_d:
+            collect_games.append(user['game_id'])
+            for game in games_db:
+                if user['game_id'] == game['game_id'] and user['date_reg'] == game['date_reg']:
+                    if user['date_reg'] == game_data['date_reg']:
+                        participants_of_game.append([user['user_id'], user['user_name'], user['user_wishlist'],
+                                                     user['user_email'], user['letter_to_santa']])
+        for wish in participants_of_game:
+            await call.message.answer(f"Игрок: {wish[1]} желает получить:\n\n{wish[2]}")
+    #     while True:
+    #         time.sleep(60 * 60)
+    #         date_today = datetime.datetime.today()
+    #         date_reg = re.sub(r'q', "", game_data['date_reg'])
+    #         day, month, year = date_reg.split(".")
+    #         user_date = datetime.datetime(int(year), int(month), int(day))
+    #         activate = user_date + timedelta(hours=12)
+    #         if activate <= date_today:
+    #             for user in users_d:
+    #                 for game in games_db:
+    #                     if user['date_reg'] == game['date_reg'] and user['game_id'] == game['game_id']:
+    #                         random.shuffle(participants_of_game)
+    #                         offset = [participants_of_game[-1]] + participants_of_game[:-1]
+    #                         stop_send = 0
+    #                         for current_user, receiver in zip(participants_of_game, offset):
+    #                             stop_send += 1
+    #                             if stop_send == len(participants_of_game):
+    #                                 break
+    #                             print(current_user, "Дарит подарок", receiver)
+    #                             if current_user[0] == user["user_id"]:
+    #                                 await bot.send_message(
+    #                                     user["user_id"], "Жеребьевка в игре “Тайный Санта” проведена!"
+    #                                                      " Спешу сообщить кто тебе выпал!")
+    #                                 await bot.send_message(
+    #                                     user["user_id"],
+    #                                     fmt.text(
+    #                                         fmt.text(
+    #                                             f"Тебе выпал игрок:  {receiver[1]}\n\n"),
+    #                                         fmt.text(
+    #                                             f"Email:  {receiver[3]}\n\n"),
+    #                                         fmt.text(
+    #                                             f"\nПисьмо Санте:   {receiver[4]}\n\n"),
+    #                                         fmt.text(
+    #                                             f"\nЖелания:   {receiver[2]}\n"),
+    #                                     )
+    #                                 )
+    #                         break
+    #                 break
+    #             break
+    # else:
+    #     with open('games.json', 'r') as games:
+    #         games_db = json.load(games)
+    #     with open('users.json', 'r') as users:
+    #         users_d = json.load(users)
+    #     for user in users_d:
+    #         collect_games.append(user['game_id'])
+    #         for game in games_db:
+    #             if user['game_id'] == game['game_id'] and user['date_reg'] == game['date_reg']:
+    #                 if user['date_reg'] == game_data['date_reg']:
+    #                     participants_of_game.append([user['user_id'], user['user_name'], user['user_wishlist'],
+    #                                                  user['user_email'], user['letter_to_santa']])
+    #     while True:
+    #         time.sleep(2)
     #         for user in users_d:
     #             for game in games_db:
     #                 if user['date_reg'] == game['date_reg'] and user['game_id'] == game['game_id']:
@@ -373,19 +447,66 @@ async def random_choice(call: types.CallbackQuery):
     #                                         f"\nЖелания:   {receiver[2]}\n"),
     #                                 )
     #                             )
-    #
     #                     break
     #             break
     #         break
 
-    user_date_1 = datetime.datetime.today() + timedelta(minutes=1)
-    while True:
-        date_today = datetime.datetime.today()
-        time.sleep(10)
-        if user_date_1 <= date_today:
+# block for test
+
+        user_date_1 = datetime.datetime.today() + timedelta(minutes=1)
+        while True:
+            date_today = datetime.datetime.today()
+            time.sleep(10)
+            if user_date_1 <= date_today:
+                for user in users_d:
+                    for game in games_db:
+                        time.sleep(2)
+                        if user['date_reg'] == game['date_reg'] and user['game_id'] == game['game_id']:
+                            random.shuffle(participants_of_game)
+                            offset = [participants_of_game[-1]] + participants_of_game[:-1]
+                            stop_send = 0
+                            for current_user, receiver in zip(participants_of_game, offset):
+                                stop_send += 1
+                                if stop_send == len(participants_of_game):
+                                    break
+                                print(current_user, "Дарит подарок", receiver)
+                                if current_user[0] == user["user_id"]:
+                                    await bot.send_message(
+                                        user["user_id"], "Жеребьевка в игре “Тайный Санта” проведена!"
+                                                         " Спешу сообщить кто тебе выпал!")
+                                    await bot.send_message(
+                                        user["user_id"],
+                                        fmt.text(
+                                            fmt.text(
+                                                f"Тебе выпал игрок:  {receiver[1]}\n\n"),
+                                            fmt.text(
+                                                f"Email:  {receiver[3]}\n\n"),
+                                            fmt.text(
+                                                f"\nПисьмо Санте:   {receiver[4]}\n\n"),
+                                            fmt.text(
+                                                f"\nЖелания:   {receiver[2]}\n"),
+                                        )
+                                    )
+                            break
+                    break
+                break
+            print('-----')
+    else:
+        with open('games.json', 'r') as games:
+            games_db = json.load(games)
+        with open('users.json', 'r') as users:
+            users_d = json.load(users)
+        for user in users_d:
+            collect_games.append(user['game_id'])
+            for game in games_db:
+                if user['game_id'] == game['game_id'] and user['date_reg'] == game['date_reg']:
+                    if user['date_reg'] == game_data['date_reg']:
+                        participants_of_game.append([user['user_id'], user['user_name'], user['user_wishlist'],
+                                                     user['user_email'], user['letter_to_santa']])
+        while True:
+            time.sleep(2)
             for user in users_d:
                 for game in games_db:
-                    time.sleep(2)
                     if user['date_reg'] == game['date_reg'] and user['game_id'] == game['game_id']:
                         random.shuffle(participants_of_game)
                         offset = [participants_of_game[-1]] + participants_of_game[:-1]
