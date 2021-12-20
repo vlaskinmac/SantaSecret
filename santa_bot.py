@@ -565,32 +565,33 @@ async def random_choice(call: types.CallbackQuery):
                 for user in users_d:
                     for game in games_db:
                         time.sleep(2)
-                        if user['date_reg'] == game['date_reg'] and user['game_id'] == game['game_id']:
-                            random.shuffle(participants_of_game)
-                            offset = [participants_of_game[-1]] + participants_of_game[:-1]
-                            stop_send = 0
-                            for current_user, receiver in zip(participants_of_game, offset):
-                                stop_send += 1
-                                if stop_send == len(participants_of_game):
-                                    break
-                                print(current_user, "Дарит подарок", receiver)
-                                if current_user[0] == user["user_id"]:
-                                    await bot.send_message(
-                                        user["user_id"], "Жеребьевка в игре “Тайный Санта” проведена!"
-                                                         " Спешу сообщить кто тебе выпал!")
-                                    await bot.send_message(
-                                        user["user_id"],
-                                        fmt.text(
+                        if user['date_reg'] == game['date_reg']:
+                            if user['game_id'] == game['game_id']:
+                                random.shuffle(participants_of_game)
+                                offset = [participants_of_game[-1]] + participants_of_game[:-1]
+                                stop_send = 0
+                                for current_user, receiver in zip(participants_of_game, offset):
+                                    stop_send += 1
+                                    if stop_send == len(participants_of_game):
+                                        break
+                                    print(current_user, "Дарит подарок", receiver)
+                                    if current_user[0] == user["user_id"]:
+                                        await bot.send_message(
+                                            user["user_id"], "Жеребьевка в игре “Тайный Санта” проведена!"
+                                                             " Спешу сообщить кто тебе выпал!")
+                                        await bot.send_message(
+                                            user["user_id"],
                                             fmt.text(
-                                                f"Тебе выпал игрок:  {receiver[1]}\n\n"),
-                                            fmt.text(
-                                                f"Email:  {receiver[3]}\n\n"),
-                                            fmt.text(
-                                                f"\nПисьмо Санте:   {receiver[4]}\n\n"),
-                                            fmt.text(
-                                                f"\nЖелания:   {receiver[2]}\n"),
+                                                fmt.text(
+                                                    f"Тебе выпал игрок:  {receiver[1]}\n\n"),
+                                                fmt.text(
+                                                    f"Email:  {receiver[3]}\n\n"),
+                                                fmt.text(
+                                                    f"\nПисьмо Санте:   {receiver[4]}\n\n"),
+                                                fmt.text(
+                                                    f"\nЖелания:   {receiver[2]}\n"),
+                                            )
                                         )
-                                    )
                             break
                     break
                 break
@@ -603,10 +604,11 @@ async def random_choice(call: types.CallbackQuery):
         for user in users_d:
             collect_games.append(user['game_id'])
             for game in games_db:
-                if user['game_id'] == game['game_id'] and user['date_reg'] == game['date_reg']:
+                if user['game_id'] == game['game_id']:
+                    if user['date_reg'] == game['date_reg']:
                     # if user['date_reg'] == game_data['date_reg']:
-                    participants_of_game.append([user['user_id'], user['user_name'], user['user_wishlist'],
-                                                 user['user_email'], user['letter_to_santa']])
+                        participants_of_game.append([user['user_id'], user['user_name'], user['user_wishlist'],
+                                                     user['user_email'], user['letter_to_santa']])
         while True:
             time.sleep(2)
             for user in users_d:
@@ -647,19 +649,17 @@ async def random_choice(call: types.CallbackQuery):
 
 @dp.message_handler()
 async def name_game(message: types.Message):
-    try:
-        if not game_data['name_game']:
-            game_data['name_game'] = message.text
-            game_data['game_id'] = random.randint(101, 701)
-            await bot.delete_message(message.from_user.id, message.message_id)
-            keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
-            button_yes = types.InlineKeyboardButton(text='ДА', callback_data='yes')
-            button_no = types.InlineKeyboardButton(text='НЕТ', callback_data='pp')
-            keyboard.add(button_yes, button_no)
-            await message.answer(f"Для игры - {game_data['name_game']}\n\nТребуется ограничение стоимости подарка?",
-                                 reply_markup=keyboard)
-    except:
-        pass
+    if not game_data['name_game']:
+        game_data['name_game'] = message.text
+        game_data['game_id'] = random.randint(101, 701)
+        await bot.delete_message(message.from_user.id, message.message_id)
+        keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
+        button_yes = types.InlineKeyboardButton(text='ДА', callback_data='yes')
+        button_no = types.InlineKeyboardButton(text='НЕТ', callback_data='pp')
+        keyboard.add(button_yes, button_no)
+        await message.answer(f"Для игры - {game_data['name_game']}\n\nТребуется ограничение стоимости подарка?",
+                             reply_markup=keyboard)
+
 
 
 if __name__ == '__main__':

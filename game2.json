@@ -1,0 +1,26 @@
+[
+   {
+      "name_game": "game1",
+      "game_id": 243,
+      "limit_price": "500-1000 p",
+      "date_reg": "05.01.2022",
+      "date_send": "06.01.2022",
+      "link_game": "https://t.me/santa_qwerty_rty_bot?start=reg243"
+   },
+   {
+      "name_game": "game2",
+      "game_id": 569,
+      "limit_price": "Нет ограничений",
+      "date_reg": "06.01.2022",
+      "date_send": "09.01.2022",
+      "link_game": "https://t.me/santa_qwerty_rty_bot?start=reg569"
+   },
+   {
+      "name_game": "game3",
+      "game_id": 191,
+      "limit_price": "500-2000 p",
+      "date_reg": "21.12.2021",
+      "date_send": "05.01.2022",
+      "link_game": "https://t.me/santa_qwerty_rty_bot?start=reg191"
+   }
+]
