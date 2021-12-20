@@ -170,7 +170,7 @@ async def logging_user(call: types.CallbackQuery):
     await call.message.answer("Отлично! Тайный Санта уже готовится к раздаче подарков!")
     await call.message.answer(
         fmt.text(
-            fmt.text("Перешлите ссылку новому участнику игры для регистрации:\n\n"),
+            fmt.text("Ссылка для нового участника игры для регистрации:\n\n"),
             fmt.text(f"Игра:  {game_data['name_game']}\n"),
             fmt.text(f'https://t.me/{bot_name.username}?start=reg{game_data["game_id"]}'),
         ), reply_markup=keyboard
@@ -341,7 +341,6 @@ async def del_user(call: types.CallbackQuery):
 @dp.callback_query_handler(text_contains='Запустить жеребьевку сейчас')
 @dp.callback_query_handler(text='Посмотреть список желаний:')
 async def random_choice(call: types.CallbackQuery):
-    await call.message.answer(call.data)
     if not call.data == 'Запустить жеребьевку сейчас':
         await call.message.answer(call.data)
         keyboard = types.InlineKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
@@ -364,7 +363,9 @@ async def random_choice(call: types.CallbackQuery):
                     if user['date_reg'] == game_data['date_reg']:
                         participants_of_game.append([user['user_id'], user['user_name'], user['user_wishlist'],
                                                      user['user_email'], user['letter_to_santa']])
+        print(participants_of_game)
         for wish in participants_of_game:
+            print(wish)
             await call.message.answer(f"Игрок: {wish[1]} желает получить:\n\n{wish[2]}")
     #     while True:
     #         time.sleep(60 * 60)
